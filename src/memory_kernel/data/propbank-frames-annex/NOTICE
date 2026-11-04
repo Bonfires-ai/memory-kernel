@@ -1,0 +1,43 @@
+NOTICE: the PropBank frames annex
+=================================
+
+What this directory is
+----------------------
+frames/ holds 24 frameset files in PropBank format. Each defines one relational-noun roleset, for example mom.01
+("ARG1 is a parent of ARG0"). memory-kernel reads them together with the upstream PropBank frames (see
+memory_kernel.pipeline.frames); none of the 24 roleset ids exists upstream, so nothing here replaces an upstream roleset.
+
+Upstream work these files build on
+----------------------------------
+PropBank frames, https://github.com/propbank/propbank-frames, at commit c66e0ccf28b53f00051b187db83e937b5bee2e32 (the
+commit `mk setup` fetches), by the contributors to propbank/propbank-frames
+(https://github.com/propbank/propbank-frames/graphs/contributors). The PropBank project site, https://propbank.github.io/,
+states: "This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License" and "Propbank
+annotation is done at CLEAR under the supervision of Martha Palmer". Licence:
+https://creativecommons.org/licenses/by-sa/4.0/legalcode (a byte copy of the upstream LICENSE is in this directory). No
+copyright notice is supplied upstream. The frameset file format, the DTD, the roleset naming scheme (<lemma>.<nn>) and the
+role labels (ARG0, ARG1, ...) follow it.
+
+Changes made (adaptations)
+--------------------------
+Eight files add one roleset to a lemma that upstream already defines, in an upstream file of the same name. Each holds only
+the added roleset, not the lemma's upstream rolesets:
+
+    buddy.xml     buddy.02       mentor.xml    mentor.02
+    father.xml    father.02      mother.xml    mother.02
+    friend.xml    friend.02      neighbor.xml  neighbor.02
+    kid.xml       kid.02         partner.xml   partner.02
+
+Sixteen files define a lemma that upstream has no file for. They are original to this package:
+
+    bestie, boyfriend, brother, colleague, coworker, dad, daughter, family,
+    girlfriend, husband, mom, pal, roommate, sister, son, wife   (each .xml, each .01)
+
+Licence
+-------
+All 24 files, the 16 original ones included, are licensed under Creative Commons Attribution-ShareAlike 4.0 International
+(CC BY-SA 4.0). LICENSE in this directory is a byte copy of the licence text that ships with the upstream propbank-frames
+repository. ShareAlike covers the eight adaptations, so one licence covers the whole directory.
+
+The Apache-2.0 licence of the rest of memory-kernel does not apply to this directory. Any file derived from these files
+(a merged frameset directory, a grammar built from the glosses) carries CC BY-SA 4.0 forward.

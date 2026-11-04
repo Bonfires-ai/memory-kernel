@@ -1,0 +1,15 @@
+{
+"wh_shapes": {"what": "what", "which": "which", "who": "who", "whom": "who", "whose": "who", "when": "when", "where": "where", "why": "what", "how": "how"},
+"degree_shape": "how",
+"how_degree_shapes": {"many": "how_many", "much": "how_many", "long": "how_long"},
+"how_other_degree": "how_degree",
+"how_manner": "what",
+"enumerating_shapes": ["what", "which"],
+"list_shape": "list",
+"addressed_complement_deps": ["ccomp", "xcomp"],
+"inference_openers": ["would", "could", "might"],
+"inference_shape": "inference",
+"polar_shape": "polar",
+"wh_kinds": {"who": "person", "when": "time", "where": "place", "how_many": "quantity", "how_long": "duration", "how_degree": "degree"},
+"role_kinds": {"argm-tmp": "time", "argm-loc": "place", "argm-mnr": "manner", "argm-cau": "cause", "argm-prp": "purpose", "argm-ext": "degree", "argm-dir": "place"}
+}

@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The same exact version as `[dev]` in pyproject.toml: the formatter's output changes between releases.
+      - name: Install ruff
+        run: python -m pip install ruff==0.15.14
+      - name: ruff check
+        run: ruff check src tests
+      - name: ruff format --check
+        run: ruff format --check src tests
+
+  test:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # [build,parser,dev]: the tests import the parser service (fastapi, benepar) and the build bridge.
+      - name: Install the package, its extras and the spaCy pipeline
+        run: |
+          python -m pip install -e ".[build,parser,dev]"
+          python -m pip install "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+      # The render tests need the NLTK WordNet corpus. It comes through the product path (`mk setup`), into a data dir outside
+      # the checkout, and the test process finds it through NLTK_DATA.
+      - name: WordNet corpus (mk setup)
+        run: |
+          mk setup --component wordnet --data-dir "$RUNNER_TEMP/mk-data"
+          echo "NLTK_DATA=$RUNNER_TEMP/mk-data/nltk_data" >> "$GITHUB_ENV"
+      # No real key, a dead proxy and the Hugging Face hub offline: a test that reaches for the network fails fast and never bills.
+      - name: pytest
+        env:
+          # CI runs the sm opt-out because the 436 MB trf wheel is not worth a CI download; the trf default is
+          # exercised by the release-check workflow (release-check.yml) and locally.
+          MK_EXTRACTION_SPACY_MODEL: en_core_web_sm
+          OPENROUTER_API_KEY: replay-invalid
+          # One spelling only: Actions env names are case-insensitive, so a second `https_proxy` fails the whole file.
+          HTTPS_PROXY: http://127.0.0.1:9
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: python -m pytest tests -q
+
+  wheel:
+    name: wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Builds the wheel, installs it into a clean venv (no src/, no .git on the path), then runs mk --help, mk setup --check
+      # --json (exit 0 or 1, the output parses as JSON, no Traceback) and an import of every module in a fresh interpreter.
+      # See the Makefile.
+      - name: make wheel
+        run: make wheel

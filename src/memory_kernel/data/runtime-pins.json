@@ -1,0 +1,68 @@
+{
+  "schema": "mk-runtime-pins/v1",
+  "platform": {"system": "Linux", "machine": "x86_64"},
+  "components": {
+    "fcg-go": {
+      "zip_url": "https://emergent-languages.org/fcg-go/fcg-go-linux.zip",
+      "zip_sha256": "67388f139dbde09b3031edd9bd7f6be5d432b012a32faaf953e740e72f25e6a0",
+      "member": "FCG Go",
+      "binary_sha256": "2cc1f08127cf255de6b4eab1f6effa0b3749d36596f5e31d3eeab9e404ce076d",
+      "mode": "0775"
+    },
+    "fcg-image": {
+      "name": "pb-en-no-single-role-frames.fci",
+      "url": "https://emergent-languages.org/fcg-go/resources/pb-en-no-single-role-frames.fci",
+      "sha256": "43edceaf1ddbcb52b1df9901ecc67d6773db04f9a8e882ea4829da9feac4f0b7"
+    },
+    "propbank-frames": {
+      "repo": "propbank/propbank-frames",
+      "commit": "c66e0ccf28b53f00051b187db83e937b5bee2e32",
+      "archive_url": "https://github.com/propbank/propbank-frames/archive/c66e0ccf28b53f00051b187db83e937b5bee2e32.tar.gz",
+      "xml_files": 7566,
+      "xml_manifest_sha256": "c1bad72745599bbca7b4b922177ffe39b15b73f95749d492ad098aae6a86b073",
+      "license_sha256": "1fdd47d0526982b4e71694ca4faf1de06ef8957faec92e3d023a26d187ac9cd3"
+    },
+    "spacy-model": {
+      "package": "en_core_web_sm",
+      "version": "3.8.0",
+      "spacy_version": "3.8.14",
+      "wheel_url": "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+      "wheel_sha256": "1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85",
+      "files": 28,
+      "installed_manifest_sha256": "3843df6117d6ab333c42d6e34d5efea0a9b0c0e25837b91ef93f91344f6beb0f"
+    },
+    "spacy-model-trf": {
+      "package": "en_core_web_trf",
+      "version": "3.8.0",
+      "spacy_version": "3.8.14",
+      "wheel_url": "https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
+      "wheel_sha256": "272a31e9d8530d1e075351d30a462d7e80e31da23574f1b274e200f3fff35bf5",
+      "files": 26,
+      "installed_manifest_sha256": "6159ce9d2e2203927770707ae900ff8b2a5aeed0f0b156a837cb29c9c84126b4"
+    },
+    "wordnet": {
+      "zip_url": "https://raw.githubusercontent.com/nltk/nltk_data/96f9b3252457a2b97e52aec64c3dfceeb5c312d5/packages/corpora/wordnet.zip",
+      "zip_sha256": "cbda5ea6eef7f36a97a43d4a75f85e07fccbb4f23657d27b4ccbc93e2646ab59",
+      "files": 18,
+      "manifest_sha256": "3ce0de2f31bab47f8360091d7dd14c4c02110dd26e0e9e758bc3b0c15fb9c85c"
+    },
+    "tiktoken": {
+      "encoding": "cl100k_base",
+      "url": "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken",
+      "sha256": "223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7"
+    },
+    "parser-model": {
+      "name": "benepar_en3",
+      "zip_url": "https://github.com/nikitakit/self-attentive-parser/releases/download/models/benepar_en3.zip",
+      "zip_sha256": "de97297ec17b92f7a40ef2e23fd1b4b8baed02eb8bee3d09b25ac6166ae17996",
+      "manifest_sha256": "44c49c2ec531e85d334dd81ef02ceb6709e621f49091501b4e72ea9172c77343",
+      "files": {
+        "benepar_model.bin": "fc465e820f8a62ffc6c23cb7d2ceed61f41d29d1930d471df301f17d3dbb4822",
+        "config.json": "b9d776b9dceee0acfe0106e06064fd8e31bc92c13687e6b34f91b15039625f54",
+        "special_tokens_map.json": "4720c0fddbe4c5991334f85ad7073d9bd0a294a8ba4641a2f8dab614ca825949",
+        "spiece.model": "d60acb128cf7b7f2536e8f38a5b18a05535c9e14c7a355904270e15b0945ea86",
+        "tokenizer_config.json": "276d4c78c1c4169cfeddedd1730dd2e6c01c52de027df02aeb1765efcd47c7b2"
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+memory-kernel
+Copyright 2026 the memory-kernel authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE), except for the directory named below.
+
+Included in the source tree and in the wheel
+--------------------------------------------
+* PropBank frames annex: src/memory_kernel/data/propbank-frames-annex/. Framesets in PropBank format, eight of them
+  adaptations of PropBank framesets. Licensed under Creative Commons Attribution-ShareAlike 4.0 International
+  (CC BY-SA 4.0); the Apache-2.0 licence does not apply to this directory. The directory has its own LICENSE and NOTICE,
+  which name the upstream work, state the changes and give the attribution.
+* English stopword list: src/memory_kernel/data/english_stopwords.json is a snapshot of the NLTK English stopwords corpus
+  (198 terms), taken with NLTK 3.9.1. The corpus README says the lists "were obtained from:
+  http://anoncvs.postgresql.org/cvsweb.cgi/pgsql/src/backend/snowball/stopwords/" and that "The English list has been
+  augmented" (https://github.com/nltk/nltk_data/issues/22). The nltk_data project lists the corpus among the datasets
+  whose licence is unclarified.
+
+Fetched by `mk setup` and not redistributed here
+------------------------------------------------
+Each item keeps the licence its distributor gives it. Nothing below is copied into this repository or its wheel.
+* PropBank frames (upstream), CC BY-SA 4.0, https://github.com/propbank/propbank-frames at commit
+  c66e0ccf28b53f00051b187db83e937b5bee2e32.
+* FCG Go engine binary and its grammar image (pb-en-no-single-role-frames.fci), fetched through the pyfcg package from the
+  FCG Go distribution at emergent-languages.org. They are fetched at setup and never redistributed by this project; their
+  terms are those of their distributor.
+* en_core_web_sm 3.8.0 (spaCy English pipeline, MIT; its LICENSES_SOURCES lists OntoNotes 5, ClearNLP and WordNet 3.0), the
+  NLTK WordNet 3.0 corpus (Princeton University licence, Copyright 2006 Princeton University) and the tiktoken
+  cl100k_base file.
+* benepar_en3 (Berkeley Neural Parser English model), from the benepar GitHub release page, used by the optional
+  `[parser]` extra. The release states no licence. The model is based on T5-small (Apache-2.0 per its model card) and was
+  trained on the Penn Treebank Revised (LDC2015T13), which is distributed under the LDC User Agreement. Check these terms
+  before you redistribute the model or anything that includes it.
+
+Optional extra `[parser]` (installed by the user from PyPI, not redistributed here)
+-----------------------------------------------------------------------------------
+* benepar 0.2.0, Copyright (c) 2017-2018 Nikita Kitaev, (c) 2017 Victor Huang, (c) 2017 Mitchell Stern. Two facts
+  disagree: the LICENSE file in its repository (commit 24435a15) is the MIT licence, while its PyPI classifier says Apache
+  Software License; the sdist contains no licence text.
+* torch-struct 0.5, Copyright (c) 2019 Harvard NLP, MIT licence: the LICENSE file in its repository and the dist-info
+  LICENSE in its PyPI wheel carry the same MIT text (the PyPI metadata licence field says UNKNOWN).
+
+Dependencies
+------------
+Installed from PyPI as dependencies, under their own licences: pyfcg (Apache-2.0), spaCy (MIT), NLTK (Apache-2.0), tiktoken
+(MIT), sentence-transformers (Apache-2.0), the neo4j driver (Apache-2.0 AND Python-2.0), torch (a composite expression, see its
+metadata), transformers (Apache-2.0) and the others named in pyproject.toml.

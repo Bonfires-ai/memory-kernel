@@ -1,0 +1,8 @@
+# Try the demo on your own machine, without Caddy or a domain: http://127.0.0.1:8081
+#   docker compose -f compose.yml -f compose.local.yml up -d demo
+services:
+  demo:
+    ports:
+      - "127.0.0.1:8081:8080"
+  caddy:
+    profiles: [hosted]

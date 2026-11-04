@@ -1,0 +1,17 @@
+{
+  "schema_version": "identity-constructions/v1",
+  "constructions": [
+    {"id": "equative", "kind": "equative", "rolesets": ["be.01"], "holder_role": "arg1", "name_role": "arg2"},
+    {"id": "naming", "kind": "naming", "rolesets": ["call.01", "name.01"], "holder_role": "arg1", "name_role": "arg2"},
+    {"id": "naming-refer", "kind": "naming", "rolesets": ["refer.01"], "holder_role": "arg1", "name_role": "arg2"},
+    {"id": "same-person-refer", "kind": "same_person", "rolesets": ["refer.01"], "names_role": "arg0"},
+    {"id": "same-person-be", "kind": "same_person", "rolesets": ["be.01"], "names_role": "arg1"}
+  ],
+  "self_holders": ["i", "me", "myself", "my name", "my real name", "my actual name", "my full name"],
+  "same_person_markers": ["same person", "one and the same", "the same account", "the same guy"],
+  "max_name_tokens": 3,
+  "not_names": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december", "today", "tomorrow", "yesterday", "tonight", "christmas", "easter", "thanksgiving", "halloween", "new year"],
+  "negation_cues": ["not", "n't", "never", "no longer", "stop", "stopped", "quit", "don't", "didn't", "isn't", "wasn't", "ain't"],
+  "irrealis_cues": ["if", "wish", "were", "nobody", "no one", "anymore", "pretend", "imagine", "as if"],
+  "strip_prefixes": ["to", "as"]
+}

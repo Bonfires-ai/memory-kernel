@@ -1,0 +1,123 @@
+{
+ "month_names": [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December"
+ ],
+ "month_abbreviations": [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "sept",
+  "oct",
+  "nov",
+  "dec"
+ ],
+ "weekdays": [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday"
+ ],
+ "seasons": {
+  "spring": "Spring",
+  "summer": "Summer",
+  "fall": "Fall",
+  "autumn": "Autumn",
+  "winter": "Winter"
+ },
+ "number_word_values": {
+  "zero": 0,
+  "one": 1,
+  "two": 2,
+  "three": 3,
+  "four": 4,
+  "five": 5,
+  "six": 6,
+  "seven": 7,
+  "eight": 8,
+  "nine": 9,
+  "ten": 10,
+  "eleven": 11,
+  "twelve": 12,
+  "thirteen": 13,
+  "fourteen": 14,
+  "fifteen": 15,
+  "sixteen": 16,
+  "seventeen": 17,
+  "eighteen": 18,
+  "nineteen": 19,
+  "twenty": 20,
+  "thirty": 30,
+  "forty": 40,
+  "fifty": 50,
+  "sixty": 60,
+  "seventy": 70,
+  "eighty": 80,
+  "ninety": 90
+ },
+ "number_word_scales": {
+  "hundred": 100,
+  "thousand": 1000
+ },
+ "leading_function_words": [
+  "on ",
+  "in ",
+  "at ",
+  "by ",
+  "the week of ",
+  "the "
+ ],
+ "dayparts_after_this": [
+  "morning",
+  "afternoon",
+  "evening"
+ ],
+ "dayparts_after_tomorrow": [
+  "morning",
+  "afternoon",
+  "evening",
+  "night"
+ ],
+ "relative_determiners": [
+  "this",
+  "last",
+  "next"
+ ],
+ "relative_offsets": [
+  "last",
+  "next"
+ ],
+ "weekday_forward_modifiers": [
+  "this",
+  "coming"
+ ],
+ "safe_type_hints": [
+  "person",
+  "people",
+  "organization",
+  "location",
+  "place",
+  "event",
+  "activity",
+  "object",
+  "project"
+ ]
+}

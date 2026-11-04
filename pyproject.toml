@@ -1,0 +1,124 @@
+[build-system]
+# setuptools>=77: `license` below is a PEP 639 SPDX expression and `license-files` a PEP 639 list, which older
+# setuptools reject.
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "memory-kernel"
+version = "2.0.0"
+description = "Standalone grammar-planned memory search kernel."
+# Apache-2.0 for the package; CC-BY-SA-4.0 for the PropBank frames annex it ships (data/propbank-frames-annex/, which
+# carries its own LICENSE and NOTICE; see NOTICE).
+license = "Apache-2.0 AND CC-BY-SA-4.0"
+license-files = [
+    "LICENSE",
+    "NOTICE",
+    "src/memory_kernel/data/propbank-frames-annex/LICENSE",
+    "src/memory_kernel/data/propbank-frames-annex/NOTICE",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.27",
+    "neo4j>=6.2,<7",
+    "nltk==3.9.1",
+    "numpy",  # spaCy requires it
+    "platformdirs",
+    "rank-bm25==0.2.2",
+    "spacy==3.8.14",
+    "tiktoken>=0.9",
+]
+
+[project.urls]
+Repository = "https://github.com/Bonfires-ai/memory-kernel"
+
+[project.scripts]
+mk = "memory_kernel.cli:main"
+
+[project.optional-dependencies]
+# `mk build`: the FCG Go bridge (capture stage). The events stage embeds with Voyage (httpx, in the base install).
+build = [
+    "pyfcg==3.3",
+]
+# Optional GPU for the transformer pipeline (CUDA 12). The CPU path is supported; this only makes it faster, and only
+# when the process runs with MK_SPACY_GPU=1 (spaCy is then asked for a GPU before its first model loads).
+gpu = [
+    "cupy-cuda12x>=13",
+]
+dev = [
+    "pytest>=9.0.3",
+    # One exact version, here and in .github/workflows/ci.yml: the formatter's output changes between releases, and a
+    # floating pin would turn a green `ruff format --check` red without a commit.
+    "ruff==0.15.14",
+]
+# The managed syntactic parser the capture stage starts (memory_kernel.parser_service): benepar constituency parsing on
+# the spaCy pipeline, served over HTTP to the FCG Go engine. Its model comes from `mk setup --component parser-model`.
+parser = [
+    "benepar==0.2.0",
+    "fastapi",
+    "protobuf",
+    "pydantic>=2",
+    "sentencepiece",
+    # The transformer pipeline en_core_web_trf (`mk setup --component spacy-model-trf` installs the pinned wheel) loads
+    # through this spaCy package, on the torch and transformers pinned here: trf needs `memory-kernel[parser]`.
+    "spacy-curated-transformers>=0.3,<0.4",
+    "tokenizers",
+    "torch>=2.5,<3",
+    "torch-struct>=0.5",
+    "transformers==4.57.6",
+    "uvicorn",
+]
+
+# kernel_ops in MongoDB (memory_kernel.ops.mongo: spend holds, append lease), imported only when a Mongo URI is given.
+ops = ["pymongo>=4"]
+
+# `mk serve`: the HTTP context server (memory_kernel.serve.http), imported only by that command.
+serve = ["fastapi", "uvicorn"]
+
+# The spaCy pipeline `spacy.load("en_core_web_sm")` needs. It is a WHEEL URL, not a PyPI name, so it cannot live in
+# `[project]` metadata (a direct URL there would make the distribution unpublishable); a PEP 735 dependency group is
+# not part of the published metadata. The closed-class anchors are one parser-independent set
+# (data/closed-class-anchors.json), so this pin only names the small model the sm opt-out loads.
+[dependency-groups]
+spacy-model = [
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+memory_kernel = ["py.typed", "data/*.json", "data/runtime-grammar/**/*.json", "data/runtime-grammar/**/*.lisp", "data/**/*.xml", "data/**/LICENSE", "data/**/NOTICE"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+markers = [
+    "needs_neo4j: reads a live Neo4j (set MK_TEST_NEO4J_URI, MK_TEST_NEO4J_GROUP, MK_TEST_NEO4J_PASSWORD)",
+    "needs_fcg: starts the pinned FCG Go engine from the `mk setup` data dir (MK_DATA_DIR); skips when it is absent",
+    "trf: pins a reading of the en_core_web_trf turn parser; skipped where turns read on another model",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.format]
+# The formatter never touches these (they are hashed or copied byte for byte): the two frozen modules the provenance pins
+# carry, and the parser service, whose code matches the origin it was copied from.
+exclude = [
+    "src/memory_kernel/construction/memory_discourse_question_batches.py",
+    "src/memory_kernel/construction/memory_jev_archive.py",
+    "src/memory_kernel/parser_service/**",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["memory_kernel"]

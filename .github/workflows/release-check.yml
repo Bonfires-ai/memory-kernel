@@ -1,0 +1,39 @@
+name: Release check
+
+# Run by hand before tagging a release (see docs/RELEASING.md): the same tests as CI, but on the default parser
+# (en_core_web_trf), which CI skips because the model is a 436 MB download.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  trf:
+    name: pytest on trf
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # [build,parser,dev]: as in ci.yml; [parser] is what lets the trf pipeline load.
+      - name: Install the package, its extras and the spaCy pipeline
+        run: |
+          python -m pip install -e ".[build,parser,dev]"
+          python -m pip install "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl"
+      # The transformer pipeline and the WordNet corpus come through the product path (`mk setup`), into a data dir
+      # outside the checkout; the test process finds WordNet through NLTK_DATA.
+      - name: trf pipeline and WordNet corpus (mk setup)
+        run: |
+          mk setup --component spacy-model-trf --component wordnet --data-dir "$RUNNER_TEMP/mk-data"
+          echo "NLTK_DATA=$RUNNER_TEMP/mk-data/nltk_data" >> "$GITHUB_ENV"
+      # MK_EXTRACTION_SPACY_MODEL is NOT set: the tests run on the trf default. needs_fcg tests skip (no engine here).
+      - name: pytest (trf)
+        env:
+          OPENROUTER_API_KEY: replay-invalid
+          # One spelling only, as in ci.yml (Actions env names are case-insensitive).
+          HTTPS_PROXY: http://127.0.0.1:9
+          HF_HUB_OFFLINE: "1"
+          TRANSFORMERS_OFFLINE: "1"
+        run: python -m pytest tests -q -m "not needs_fcg"

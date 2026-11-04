@@ -1,0 +1,68 @@
+# One server: Neo4j, the demo app and Caddy for HTTPS. See README.md here. Only Caddy publishes ports.
+name: memory-kernel-demo
+
+x-kernel: &kernel
+  build:
+    context: ../..
+    dockerfile: examples/demo/Dockerfile
+  env_file: .env
+  environment:
+    NEO4J_URI: bolt://neo4j:7687
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD in .env}
+      NEO4J_server_memory_heap_max__size: 1g
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - neo4j-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+      start_period: 20s
+
+  # Run once: docker compose --profile seed run --rm seed
+  mongo:
+    image: mongo:7
+    profiles: [seed]
+  seed:
+    <<: *kernel
+    profiles: [seed]
+    user: root
+    depends_on:
+      neo4j: {condition: service_healthy}
+      mongo: {condition: service_started}
+    command: >
+      mk build examples/synthetic_dialogue.json --workdir /tmp/work --group example-dialogue
+      --purpose-file examples/purpose.txt --seed --ops-uri mongodb://mongo:27017 --neo4j-uri bolt://neo4j:7687
+
+  demo:
+    <<: *kernel
+    depends_on:
+      neo4j: {condition: service_healthy}
+    command: uvicorn app:app --app-dir examples/demo --host 0.0.0.0 --port 8080
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  caddy:
+    image: caddy:2
+    depends_on: [demo]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    restart: unless-stopped
+
+volumes:
+  neo4j-data:
+  caddy-data:

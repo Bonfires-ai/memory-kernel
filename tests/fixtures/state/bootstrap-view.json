@@ -1,0 +1,369 @@
+{
+ "episodes": 4,
+ "evidence": {
+  "b1": {
+   "addressees": [],
+   "message_id": "b1",
+   "speaker": "Ana",
+   "text": "I like apples",
+   "timestamp": "2026-06-03T09:00:00+00:00"
+  },
+  "b2": {
+   "addressees": [
+    "Ana"
+   ],
+   "message_id": "b2",
+   "speaker": "Bo",
+   "text": "Mira likes pears",
+   "timestamp": "2026-06-03T09:01:00+00:00"
+  },
+  "b3": {
+   "addressees": [
+    "helper"
+   ],
+   "message_id": "b3",
+   "speaker": "Eli",
+   "text": "Eli likes figs",
+   "timestamp": "2026-06-03T09:02:00+00:00"
+  },
+  "b4": {
+   "addressees": [
+    "scribe"
+   ],
+   "message_id": "b4",
+   "speaker": "Dov",
+   "text": "Bo likes plums",
+   "timestamp": "2026-06-04T10:00:00+00:00"
+  },
+  "b6": {
+   "addressees": [],
+   "message_id": "b6",
+   "speaker": "Ana",
+   "text": "Dee met Cy",
+   "timestamp": "2026-06-05T11:01:00+00:00"
+  },
+  "b7": {
+   "addressees": [],
+   "message_id": "b7",
+   "speaker": "Eli",
+   "text": "I like plums",
+   "timestamp": "2026-06-05T11:02:00+00:00"
+  }
+ },
+ "message_ids": {
+  "b1": 0,
+  "b2": 0,
+  "b3": 0,
+  "b4": 0,
+  "b5": 0,
+  "b6": 0,
+  "b7": 0
+ },
+ "messages": 7,
+ "projection_view": {
+  "agent_handles": [
+   "@helper"
+  ],
+  "chats": {
+   "k1": {
+    "boundary": {
+     "cursor": 6,
+     "episode_start": 6,
+     "messages": 6,
+     "policy": "segmenter"
+    },
+    "episodes": 3,
+    "last_episode": "ep-4",
+    "last_order": 6,
+    "last_saga": "fc8bc1f44d076cd6a202d1d924048d6b",
+    "roster": [
+     "Ana",
+     "Bo",
+     "Eli",
+     "helper"
+    ],
+    "tail": [
+     {
+      "addressees": [],
+      "attachments": [],
+      "content_sha256": "9d75ecaf830d62c25a3062b3d5d09a3cf12f0757c4cdaa3c89d73266e86c4c63",
+      "message_id": "b7",
+      "order": 6,
+      "schema_version": "discourse-source/v1",
+      "scope": {
+       "bonfire_id": "bf-kiln",
+       "conversation_id": "conv-kiln"
+      },
+      "session_id": "conv-kiln-session_3",
+      "speaker": "Eli",
+      "text": "I like plums",
+      "text_sha256": "db3b5bb63225682e268922419cce35f5a1a03d429c665b5813339b10a5edbca5",
+      "timestamp": "2026-06-05T11:02:00+00:00"
+     }
+    ]
+   },
+   "k2": {
+    "boundary": {
+     "cursor": 1,
+     "episode_start": 1,
+     "messages": 1,
+     "policy": "segmenter"
+    },
+    "episodes": 1,
+    "last_episode": "ep-3",
+    "last_order": 3,
+    "last_saga": "7ebabc30884c50ad5ef60e2b3d87d2cd",
+    "roster": [
+     "Dov",
+     "scribe",
+     "Bo"
+    ],
+    "tail": [
+     {
+      "addressees": [
+       "scribe"
+      ],
+      "attachments": [],
+      "content_sha256": "5af4d5d58ca5d08b0cdfc723b014b069601365d09929814d73e9cc1bcb457206",
+      "message_id": "b4",
+      "order": 3,
+      "schema_version": "discourse-source/v1",
+      "scope": {
+       "bonfire_id": "bf-kiln",
+       "conversation_id": "conv-kiln"
+      },
+      "session_id": "conv-kiln-session_2",
+      "speaker": "Dov",
+      "text": "Bo likes plums",
+      "text_sha256": "078015f7c00cd507777c555947edc8da0c52faa010e90629b0265dfc7b006628",
+      "timestamp": "2026-06-04T10:00:00+00:00"
+     }
+    ]
+   }
+  },
+  "entities": [
+   {
+    "display": "Ana",
+    "key": "ana",
+    "kind": "person",
+    "order": 0,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "0bff948d18dc98bbf84202dec9c16c4e"
+   },
+   {
+    "display": "Bo",
+    "key": "bo",
+    "kind": "person",
+    "order": 1,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "06f4eff1d557cac99d012a04bf71d96b"
+   },
+   {
+    "display": "Mira",
+    "key": "mira",
+    "kind": "entity",
+    "order": 1,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "5aa6f0938c6071aa9908586c5814ae1d"
+   },
+   {
+    "display": "Eli",
+    "key": "eli",
+    "kind": "person",
+    "order": 2,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb"
+   },
+   {
+    "display": "Dov",
+    "key": "dov",
+    "kind": "person",
+    "order": 3,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "f1e2a20ed755da8331929794b4f42e09"
+   },
+   {
+    "display": "Cy",
+    "key": "cy",
+    "kind": "entity",
+    "order": 5,
+    "run": 0,
+    "surfaces": [],
+    "uuid": "067f3f06540c949be25d283134c03717"
+   }
+  ],
+  "explicit_since": 1,
+  "ground": [
+   {
+    "chats": [
+     "k1"
+    ],
+    "first_mid": "b6",
+    "last_at": "2026-06-05T11:01:00+00:00",
+    "last_mid": "b6",
+    "legacy": true,
+    "mentions": 1,
+    "people": [
+     "ana"
+    ],
+    "uuid": "067f3f06540c949be25d283134c03717"
+   },
+   {
+    "chats": [
+     "k1",
+     "k2"
+    ],
+    "first_mid": "b2",
+    "last_at": "2026-06-05T11:01:00+00:00",
+    "last_mid": "b6",
+    "legacy": true,
+    "mentions": 4,
+    "people": [
+     "bo",
+     "ana",
+     "dov",
+     "scribe"
+    ],
+    "uuid": "06f4eff1d557cac99d012a04bf71d96b"
+   },
+   {
+    "chats": [
+     "k1"
+    ],
+    "first_mid": "b1",
+    "last_at": "2026-06-05T11:01:00+00:00",
+    "last_mid": "b6",
+    "legacy": true,
+    "mentions": 3,
+    "people": [
+     "ana",
+     "bo"
+    ],
+    "uuid": "0bff948d18dc98bbf84202dec9c16c4e"
+   },
+   {
+    "chats": [
+     "k1"
+    ],
+    "first_mid": "b3",
+    "last_at": "2026-06-05T11:02:00+00:00",
+    "last_mid": "b7",
+    "legacy": true,
+    "mentions": 2,
+    "people": [
+     "eli"
+    ],
+    "uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb"
+   },
+   {
+    "chats": [
+     "k1"
+    ],
+    "first_mid": "b2",
+    "last_at": "2026-06-03T09:01:00+00:00",
+    "last_mid": "b2",
+    "legacy": true,
+    "mentions": 1,
+    "people": [
+     "bo",
+     "ana"
+    ],
+    "uuid": "5aa6f0938c6071aa9908586c5814ae1d"
+   },
+   {
+    "chats": [
+     "k2"
+    ],
+    "first_mid": "b4",
+    "last_at": "2026-06-04T10:00:00+00:00",
+    "last_mid": "b4",
+    "legacy": true,
+    "mentions": 1,
+    "people": [
+     "dov",
+     "scribe"
+    ],
+    "uuid": "f1e2a20ed755da8331929794b4f42e09"
+   }
+  ],
+  "kinds": {
+   "067f3f06540c949be25d283134c03717": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": false,
+    "supplied": {}
+   },
+   "06f4eff1d557cac99d012a04bf71d96b": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": true,
+    "supplied": {}
+   },
+   "0bff948d18dc98bbf84202dec9c16c4e": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": true,
+    "supplied": {}
+   },
+   "1c1ebd7d7c71f811aa73f29c5d5164bb": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": true,
+    "supplied": {}
+   },
+   "5aa6f0938c6071aa9908586c5814ae1d": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": false,
+    "supplied": {}
+   },
+   "f1e2a20ed755da8331929794b4f42e09": {
+    "head": {},
+    "loc_roles": 0,
+    "located": false,
+    "person": true,
+    "supplied": {}
+   }
+  },
+  "routes": {
+   "dee": "06f4eff1d557cac99d012a04bf71d96b"
+  },
+  "run": 0,
+  "same_as": []
+ },
+ "rolesets": {
+  "be.01": {
+   "examples": [
+    "Bo: my name is Dee"
+   ],
+   "gloss": "be (roles: arg1 = topic, arg2 = comment)",
+   "run": 0
+  },
+  "like.01": {
+   "examples": [
+    "Ana: I like apples",
+    "Bo: Mira likes pears"
+   ],
+   "gloss": "like (roles: arg0 = liker, arg1 = thing liked)",
+   "run": 0
+  },
+  "meet.01": {
+   "examples": [
+    "Ana: Dee met Cy"
+   ],
+   "gloss": "meet (roles: arg0 = one party, arg1 = other party)",
+   "run": 0
+  }
+ },
+ "sessions": 3
+}

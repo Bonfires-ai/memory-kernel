@@ -1,0 +1,179 @@
+{
+ "_comment": "Person, number and gender of the English personal pronouns, keyed by lowercase form. Read only where a token has no morphology of its own (capture leaves carry a PTB tag and no morph; the parse can leave Person off a pronoun). 'independent' marks the possessives that stand without a noun. Gender is absent for 'they' and 'you'. The clitics section gives the forms of the auxiliaries that I'm, you've, we'll ... contract: 'singular' agrees with a named speaker, 'plural' with a pair.",
+ "pronouns": {
+  "i": {
+   "person": 1,
+   "number": "sing"
+  },
+  "me": {
+   "person": 1,
+   "number": "sing"
+  },
+  "my": {
+   "person": 1,
+   "number": "sing",
+   "possessive": true
+  },
+  "mine": {
+   "person": 1,
+   "number": "sing",
+   "possessive": true,
+   "independent": true
+  },
+  "myself": {
+   "person": 1,
+   "number": "sing",
+   "reflexive": true
+  },
+  "we": {
+   "person": 1,
+   "number": "plur"
+  },
+  "us": {
+   "person": 1,
+   "number": "plur"
+  },
+  "our": {
+   "person": 1,
+   "number": "plur",
+   "possessive": true
+  },
+  "ours": {
+   "person": 1,
+   "number": "plur",
+   "possessive": true,
+   "independent": true
+  },
+  "ourselves": {
+   "person": 1,
+   "number": "plur",
+   "reflexive": true
+  },
+  "you": {
+   "person": 2
+  },
+  "your": {
+   "person": 2,
+   "possessive": true
+  },
+  "yours": {
+   "person": 2,
+   "possessive": true,
+   "independent": true
+  },
+  "yourself": {
+   "person": 2,
+   "number": "sing",
+   "reflexive": true
+  },
+  "yourselves": {
+   "person": 2,
+   "number": "plur",
+   "reflexive": true
+  },
+  "he": {
+   "person": 3,
+   "number": "sing",
+   "gender": "masc"
+  },
+  "him": {
+   "person": 3,
+   "number": "sing",
+   "gender": "masc"
+  },
+  "his": {
+   "person": 3,
+   "number": "sing",
+   "gender": "masc",
+   "possessive": true
+  },
+  "himself": {
+   "person": 3,
+   "number": "sing",
+   "gender": "masc",
+   "reflexive": true
+  },
+  "she": {
+   "person": 3,
+   "number": "sing",
+   "gender": "fem"
+  },
+  "her": {
+   "person": 3,
+   "number": "sing",
+   "gender": "fem"
+  },
+  "hers": {
+   "person": 3,
+   "number": "sing",
+   "gender": "fem",
+   "possessive": true,
+   "independent": true
+  },
+  "herself": {
+   "person": 3,
+   "number": "sing",
+   "gender": "fem",
+   "reflexive": true
+  },
+  "it": {
+   "person": 3,
+   "number": "sing",
+   "gender": "neut"
+  },
+  "its": {
+   "person": 3,
+   "number": "sing",
+   "gender": "neut",
+   "possessive": true
+  },
+  "itself": {
+   "person": 3,
+   "number": "sing",
+   "gender": "neut",
+   "reflexive": true
+  },
+  "they": {
+   "person": 3,
+   "number": "plur"
+  },
+  "them": {
+   "person": 3,
+   "number": "plur"
+  },
+  "their": {
+   "person": 3,
+   "number": "plur",
+   "possessive": true
+  },
+  "theirs": {
+   "person": 3,
+   "number": "plur",
+   "possessive": true,
+   "independent": true
+  },
+  "themselves": {
+   "person": 3,
+   "number": "plur",
+   "reflexive": true
+  }
+ },
+ "clitic_forms": {
+  "be": {
+   "singular": "is",
+   "plural": "are"
+  },
+  "have": {
+   "singular": "has",
+   "plural": "have"
+  },
+  "will": {
+   "singular": "will",
+   "plural": "will"
+  },
+  "would": {
+   "singular": "would",
+   "plural": "would"
+  }
+ }
+}

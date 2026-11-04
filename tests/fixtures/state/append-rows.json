@@ -1,0 +1,2014 @@
+{
+ "edges": [
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "12373a8581315830fbb88190e5e6158a"
+   },
+   "source": "ce33450090da0e4b91d387615c3924bf",
+   "target": "3cbbb8d928bca263fb5461f5492c3bbd",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "124feb1297f09f4f3f7823eaeb251b46"
+   },
+   "source": "324944887d7363d5bd984bfda93b5b0a",
+   "target": "bab7f90cd1aaa79602faf269464961c5",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "23cba10b03b85f8a5d675a302db95b98"
+   },
+   "source": "fc8bc1f44d076cd6a202d1d924048d6b",
+   "target": "2b02467642d007f5bb13bef0d07c252f",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "72dd5a02c40ce983acf4e33ca675ed65"
+   },
+   "source": "7ebabc30884c50ad5ef60e2b3d87d2cd",
+   "target": "ee98f50bd5087db0a39981f4f6ebd6c7",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "963058cdc57728819e778c11aa24ed74"
+   },
+   "source": "fc8bc1f44d076cd6a202d1d924048d6b",
+   "target": "263ce2a221151505cc357ba29939f549",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "b9b3523b80464dbe892466770a618555"
+   },
+   "source": "3ef4b224c46dd4608e7c8043730b272f",
+   "target": "beefe48660cdbec94510103a3836155d",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "bbf6297007b1b90606f4ed874ac2594c"
+   },
+   "source": "11d4d47d7694f50788dba189ca69ab12",
+   "target": "8e7cc6f926508cc79f57bc788db86920",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "bfd31e293caf766a21a5860962ec4702"
+   },
+   "source": "ce33450090da0e4b91d387615c3924bf",
+   "target": "79d506e66570e798c9fb40f55e80f64b",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "efd5bf3f57dc9b7f9e951ac458bddfc6"
+   },
+   "source": "fc8bc1f44d076cd6a202d1d924048d6b",
+   "target": "537121a1ca8cfac3ce2b414839cd97b2",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "f8ef31a2e0377be9f97e28fb7512da1a"
+   },
+   "source": "11d4d47d7694f50788dba189ca69ab12",
+   "target": "c2f286629aed20f3cd655f1398be415a",
+   "type": "HAS_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "02e07f09b60ba93ecbde8a34fe57111b"
+   },
+   "source": "ee98f50bd5087db0a39981f4f6ebd6c7",
+   "target": "c98599ce05aee6c8680f555dd35b32b0",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "0987ba9b6829ae29c003b263f4076953"
+   },
+   "source": "3cbbb8d928bca263fb5461f5492c3bbd",
+   "target": "9d0906577085510815b9b86de2100738",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "0ac5df081ec2f70efcccc5bc1f7d3031"
+   },
+   "source": "79d506e66570e798c9fb40f55e80f64b",
+   "target": "43aeb1094b8c2c5806a2febde27ec70f",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "0c24b4b53424616490a01becae95b192"
+   },
+   "source": "263ce2a221151505cc357ba29939f549",
+   "target": "067f3f06540c949be25d283134c03717",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "211793bfb03bde88e2d1369432eab164"
+   },
+   "source": "79d506e66570e798c9fb40f55e80f64b",
+   "target": "5aa6f0938c6071aa9908586c5814ae1d",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "35f4a0986c3a3e7a630ab8fbcb9bbe75"
+   },
+   "source": "263ce2a221151505cc357ba29939f549",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "41204647f4ab86de4bb1d97975b5e3e3"
+   },
+   "source": "537121a1ca8cfac3ce2b414839cd97b2",
+   "target": "6a9b2c805f56bb083bf4ccecacd61f9c",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "42790e6d60da9205b0c0a7bc6af299a2"
+   },
+   "source": "263ce2a221151505cc357ba29939f549",
+   "target": "be711301c8315cbb31186d4f6f2a419b",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "438a8ac88bb6452efe7c7914cb67f39f"
+   },
+   "source": "bab7f90cd1aaa79602faf269464961c5",
+   "target": "d28d428e1fd26d82ae4ce52d08cacc8a",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "50718091583ec22d43850c478d0d22c8"
+   },
+   "source": "8e7cc6f926508cc79f57bc788db86920",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "5f2eae7720d4d4392e59ce0b6f71e935"
+   },
+   "source": "ee98f50bd5087db0a39981f4f6ebd6c7",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "6b3e436bb96158d98d67a1c7ff33e958"
+   },
+   "source": "ee98f50bd5087db0a39981f4f6ebd6c7",
+   "target": "f1e2a20ed755da8331929794b4f42e09",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "7d677869036d10cec4670a9abd5214b0"
+   },
+   "source": "3cbbb8d928bca263fb5461f5492c3bbd",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "91d0db4b24c21afe04f2ba55c813fa38"
+   },
+   "source": "8e7cc6f926508cc79f57bc788db86920",
+   "target": "f1e2a20ed755da8331929794b4f42e09",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "a33d818bbab96e2759ca018439ae06d0"
+   },
+   "source": "79d506e66570e798c9fb40f55e80f64b",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "d54cb7884ac110c6d10f6381a2eb5e94"
+   },
+   "source": "2b02467642d007f5bb13bef0d07c252f",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "dd2d7b231b8c6cffdb5eedb4b653ac3f"
+   },
+   "source": "beefe48660cdbec94510103a3836155d",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "e2da4c2b83c6fe27a7e3657a4b71ee30"
+   },
+   "source": "c2f286629aed20f3cd655f1398be415a",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "edf7acfcf26ea0ab6c77880f38169794"
+   },
+   "source": "bab7f90cd1aaa79602faf269464961c5",
+   "target": "f1e2a20ed755da8331929794b4f42e09",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "f5b76709cae35c2a74703b999d457110"
+   },
+   "source": "263ce2a221151505cc357ba29939f549",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "f5f4fb7e0db78d5496934fff8ae352f8"
+   },
+   "source": "8e7cc6f926508cc79f57bc788db86920",
+   "target": "0df0004d0024592b3161b8025709bdcd",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "f6e5c7b043f32a12f66e2ea6353abf21"
+   },
+   "source": "beefe48660cdbec94510103a3836155d",
+   "target": "bb423a860e45bd0a2bbf70a1299eb738",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "fd8dfc63bf121f23eba3e36e9d1c1ccc"
+   },
+   "source": "537121a1ca8cfac3ce2b414839cd97b2",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "MENTIONS"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "06b9ff04b16beede5f1bf400e98e5138"
+   },
+   "source": "263ce2a221151505cc357ba29939f549",
+   "target": "537121a1ca8cfac3ce2b414839cd97b2",
+   "type": "NEXT_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "4cca78a52eb2b89b9b4959a35a5f8f39"
+   },
+   "source": "2b02467642d007f5bb13bef0d07c252f",
+   "target": "263ce2a221151505cc357ba29939f549",
+   "type": "NEXT_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "aa4a2e47943d5545c56f9247be20b410"
+   },
+   "source": "3cbbb8d928bca263fb5461f5492c3bbd",
+   "target": "79d506e66570e798c9fb40f55e80f64b",
+   "type": "NEXT_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "e88a14aa1151293e83ec713ccfe6f63f"
+   },
+   "source": "c2f286629aed20f3cd655f1398be415a",
+   "target": "8e7cc6f926508cc79f57bc788db86920",
+   "type": "NEXT_EPISODE"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "b994be858b9ca42d09bee36bd04ac9e4"
+   },
+   "source": "ce33450090da0e4b91d387615c3924bf",
+   "target": "3ef4b224c46dd4608e7c8043730b272f",
+   "type": "NEXT_SAGA"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "be6c4751d58795f98636dfd70cf43b09"
+   },
+   "source": "7ebabc30884c50ad5ef60e2b3d87d2cd",
+   "target": "11d4d47d7694f50788dba189ca69ab12",
+   "type": "NEXT_SAGA"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "bea286d909a8a61c23f6e688dbafe9f6"
+   },
+   "source": "11d4d47d7694f50788dba189ca69ab12",
+   "target": "324944887d7363d5bd984bfda93b5b0a",
+   "type": "NEXT_SAGA"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "f66d50a99a34331972f51fd1b2189c74"
+   },
+   "source": "3ef4b224c46dd4608e7c8043730b272f",
+   "target": "fc8bc1f44d076cd6a202d1d924048d6b",
+   "type": "NEXT_SAGA"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "79d506e66570e798c9fb40f55e80f64b"
+    ],
+    "event_uuid": "43aeb1094b8c2c5806a2febde27ec70f",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Mira likes pears.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Mira like pears",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-03T09:01:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 0,
+    "source_uuid": "43aeb1094b8c2c5806a2febde27ec70f",
+    "target_uuid": "5aa6f0938c6071aa9908586c5814ae1d",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:01:00+00:00",
+    "uuid": "3f323077005f720361d308519534b94d",
+    "valid_at": "2026-06-03T09:01:00+00:00"
+   },
+   "source": "43aeb1094b8c2c5806a2febde27ec70f",
+   "target": "5aa6f0938c6071aa9908586c5814ae1d",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "537121a1ca8cfac3ce2b414839cd97b2"
+    ],
+    "event_uuid": "6a9b2c805f56bb083bf4ccecacd61f9c",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Eli likes plums.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-05",
+    "happened_at_grain": "day",
+    "key_text": "Eli like plums",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-05T11:02:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 0,
+    "source_uuid": "6a9b2c805f56bb083bf4ccecacd61f9c",
+    "target_uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+    "time_source": "told_default",
+    "told_at": "2026-06-05T11:02:00+00:00",
+    "uuid": "48c9f90e16e0b276074bda10e81b1a89",
+    "valid_at": "2026-06-05T11:02:00+00:00"
+   },
+   "source": "6a9b2c805f56bb083bf4ccecacd61f9c",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "3cbbb8d928bca263fb5461f5492c3bbd"
+    ],
+    "event_uuid": "9d0906577085510815b9b86de2100738",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Ana likes apples.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Ana like apples",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-03T09:00:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 0,
+    "source_uuid": "9d0906577085510815b9b86de2100738",
+    "target_uuid": "0bff948d18dc98bbf84202dec9c16c4e",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:00:00+00:00",
+    "uuid": "59ff219ea0feb81ce3a85e9e5342bb86",
+    "valid_at": "2026-06-03T09:00:00+00:00"
+   },
+   "source": "9d0906577085510815b9b86de2100738",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "263ce2a221151505cc357ba29939f549"
+    ],
+    "event_uuid": "be711301c8315cbb31186d4f6f2a419b",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Dee met Cy.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-05",
+    "happened_at_grain": "day",
+    "key_text": "Dee meet Cy",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-05T11:01:00+00:00",
+    "role": "arg0",
+    "roleset": "meet.01",
+    "run": 0,
+    "source_uuid": "be711301c8315cbb31186d4f6f2a419b",
+    "target_uuid": "06f4eff1d557cac99d012a04bf71d96b",
+    "time_source": "told_default",
+    "told_at": "2026-06-05T11:01:00+00:00",
+    "uuid": "60b5cdeb29bab4decd4b3e457ff24b5c",
+    "valid_at": "2026-06-05T11:01:00+00:00"
+   },
+   "source": "be711301c8315cbb31186d4f6f2a419b",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "8e7cc6f926508cc79f57bc788db86920"
+    ],
+    "event_uuid": "0df0004d0024592b3161b8025709bdcd",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Eli likes pears.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-06",
+    "happened_at_grain": "day",
+    "key_text": "Eli like pears",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-06T12:01:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 1,
+    "source_uuid": "0df0004d0024592b3161b8025709bdcd",
+    "target_uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+    "time_source": "told_default",
+    "told_at": "2026-06-06T12:01:00+00:00",
+    "uuid": "d082dfca48d3c5125861549cbc3329c9",
+    "valid_at": "2026-06-06T12:01:00+00:00"
+   },
+   "source": "0df0004d0024592b3161b8025709bdcd",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "ee98f50bd5087db0a39981f4f6ebd6c7"
+    ],
+    "event_uuid": "c98599ce05aee6c8680f555dd35b32b0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Bo likes plums.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-04",
+    "happened_at_grain": "day",
+    "key_text": "Bo like plums",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-04T10:00:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 0,
+    "source_uuid": "c98599ce05aee6c8680f555dd35b32b0",
+    "target_uuid": "06f4eff1d557cac99d012a04bf71d96b",
+    "time_source": "told_default",
+    "told_at": "2026-06-04T10:00:00+00:00",
+    "uuid": "e52f474730571a01a4aa1431659994f9",
+    "valid_at": "2026-06-04T10:00:00+00:00"
+   },
+   "source": "c98599ce05aee6c8680f555dd35b32b0",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "263ce2a221151505cc357ba29939f549"
+    ],
+    "event_uuid": "be711301c8315cbb31186d4f6f2a419b",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Dee met Cy.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-05",
+    "happened_at_grain": "day",
+    "key_text": "Dee meet Cy",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-05T11:01:00+00:00",
+    "role": "arg1",
+    "roleset": "meet.01",
+    "run": 0,
+    "source_uuid": "be711301c8315cbb31186d4f6f2a419b",
+    "target_uuid": "067f3f06540c949be25d283134c03717",
+    "time_source": "told_default",
+    "told_at": "2026-06-05T11:01:00+00:00",
+    "uuid": "efd2bc6c1e20e228ea7359eb58fd66fd",
+    "valid_at": "2026-06-05T11:01:00+00:00"
+   },
+   "source": "be711301c8315cbb31186d4f6f2a419b",
+   "target": "067f3f06540c949be25d283134c03717",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episodes": [
+     "beefe48660cdbec94510103a3836155d"
+    ],
+    "event_uuid": "bb423a860e45bd0a2bbf70a1299eb738",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "fact": "Eli likes figs.",
+    "fact_embedding": [
+     0.25,
+     0.75
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Eli like figs",
+    "modality": "actual",
+    "name": "ARG",
+    "plan": "lang:occurrence@a9b01dff",
+    "reference_time": "2026-06-03T09:02:00+00:00",
+    "role": "arg0",
+    "roleset": "like.01",
+    "run": 0,
+    "source_uuid": "bb423a860e45bd0a2bbf70a1299eb738",
+    "target_uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:02:00+00:00",
+    "uuid": "f7c78bec2e1bc0b8cad78e65d151fc0a",
+    "valid_at": "2026-06-03T09:02:00+00:00"
+   },
+   "source": "bb423a860e45bd0a2bbf70a1299eb738",
+   "target": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+   "type": "RELATES_TO"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 0,
+    "uuid": "79436113c4c7eeabcb4cf6dece407dc0"
+   },
+   "source": "936ef880e270c54bda1c14b876bc6eb4",
+   "target": "06f4eff1d557cac99d012a04bf71d96b",
+   "type": "ROUTES_TO"
+  },
+  {
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "run": 1,
+    "uuid": "af973a7362da91db243acfef755a2766"
+   },
+   "source": "91719f30b0ab8f5df108a22c1091cabb",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "ROUTES_TO"
+  },
+  {
+   "props": {
+    "card": "equative",
+    "claim_message": "a1",
+    "created_at": "2026-10-07T00:00:00Z",
+    "group_id": "mk20-test-5eed0004",
+    "holder": "Ana",
+    "name": "Mira",
+    "run": 1,
+    "uuid": "a403c5927416ee17f02da06413f28578"
+   },
+   "source": "5aa6f0938c6071aa9908586c5814ae1d",
+   "target": "0bff948d18dc98bbf84202dec9c16c4e",
+   "type": "SAME_AS"
+  }
+ ],
+ "meta": {
+  "agent_handle_runs": [
+   0,
+   1
+  ],
+  "agent_handles": [
+   "@helper",
+   "@scribe"
+  ],
+  "bonfire_id": "conv-kiln",
+  "boundary_policy": "segmenter",
+  "build_config_json": "{\"boundary_policy\": \"segmenter\", \"group\": \"mk20-test-5eed0004\", \"ingest_pass\": \"mk-conv-kiln-001\", \"referent_policy\": \"structure\", \"sample_id\": \"conv-kiln\"}",
+  "chat_tagged": true,
+  "committed_run": 1,
+  "created_at": "2026-10-07T00:00:00Z",
+  "explicit_since": 1,
+  "extraction_model_json": "{\"name\": \"fixture-parser\", \"version\": \"0\"}",
+  "group_id": "mk20-test-5eed0004",
+  "query_cache_key": "5ff92ca1eb14",
+  "recipe_tag": "kiln-recipe",
+  "schema": "mk-bonfire/v3",
+  "sessions": 4,
+  "uuid": "57b0fe048a49f4c5bc3fff0fca74b748"
+ },
+ "nodes": [
+  {
+   "labels_neo4j": [
+    "Entity"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": false,
+    "mint_kind": "entity",
+    "minted_order": [
+     0,
+     5
+    ],
+    "name": "Cy",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "cy",
+    "run": 0,
+    "summary": "",
+    "uuid": "067f3f06540c949be25d283134c03717"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Person"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "identity_aliases": [
+     "Dee"
+    ],
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": true,
+    "mint_kind": "person",
+    "minted_order": [
+     0,
+     1
+    ],
+    "name": "Bo",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "bo",
+    "run": 0,
+    "summary": "",
+    "uuid": "06f4eff1d557cac99d012a04bf71d96b"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Person"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "identity_aliases": [
+     "Mira"
+    ],
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": true,
+    "mint_kind": "person",
+    "minted_order": [
+     0,
+     0
+    ],
+    "name": "Ana",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "ana",
+    "run": 0,
+    "summary": "",
+    "uuid": "0bff948d18dc98bbf84202dec9c16c4e"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "pears",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "8e7cc6f926508cc79f57bc788db86920",
+    "event_key": "0008/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-06",
+    "happened_at_grain": "day",
+    "key_text": "Eli like pears",
+    "message_id": "a2",
+    "modality": "actual",
+    "name": "like.01: arg0 Eli; arg1 pears",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_4",
+    "source_text": "Eli likes pears.",
+    "summary": "like.01: arg0 Eli; arg1 pears",
+    "time_source": "told_default",
+    "told_at": "2026-06-06T12:01:00+00:00",
+    "uuid": "0df0004d0024592b3161b8025709bdcd",
+    "valid_at": "2026-06-06T12:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k2",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-06T12:01:00+00:00",
+    "first_episode_uuid": "c2f286629aed20f3cd655f1398be415a",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "8e7cc6f926508cc79f57bc788db86920",
+    "message_count": 2,
+    "name": "ep-5",
+    "run": 1,
+    "started_at": "2026-06-06T12:00:00+00:00",
+    "summary": "2026-06-06T12:00:00+00:00 to 2026-06-06T12:01:00+00:00; 2 messages; speakers: Ana, Dov",
+    "uuid": "11d4d47d7694f50788dba189ca69ab12"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Person"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": true,
+    "mint_kind": "person",
+    "minted_order": [
+     0,
+     2
+    ],
+    "name": "Eli",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "eli",
+    "run": 0,
+    "summary": "",
+    "uuid": "1c1ebd7d7c71f811aa73f29c5d5164bb"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Roleset"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "examples": [
+     "Ana: Dee met Cy"
+    ],
+    "first_run": 0,
+    "gloss": "meet (roles: arg0 = one party, arg1 = other party)",
+    "gloss_source": "frames",
+    "group_id": "mk20-test-5eed0004",
+    "roleset": "meet.01",
+    "uuid": "20162e33f894aa974267ca75cec66fd3"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Ana: Dee met Cy",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "60b5cdeb29bab4decd4b3e457ff24b5c",
+     "efd2bc6c1e20e228ea7359eb58fd66fd"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.3125,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b6",
+    "message_text_sha256": "ddf3f5399bcacbb4a675aac1c90a130673768588a8837a0dbdb97005ee0abb36",
+    "mood": "declarative",
+    "name": "b6",
+    "order": 5,
+    "reply_to": "2b02467642d007f5bb13bef0d07c252f",
+    "run": 0,
+    "sender": "0bff948d18dc98bbf84202dec9c16c4e",
+    "sender_name": "Ana",
+    "session": 3,
+    "source": "message",
+    "source_description": "conv-kiln-session_3",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"3cf33adc79bc37c4c5e251811b2e05188254eefa69cde83aa3e2d6b852292795\", \"message_id\": \"b6\", \"order\": 5, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_3\", \"speaker\": \"Ana\", \"text\": \"Dee met Cy\", \"text_sha256\": \"e9c4a42a9757a91856715ad1579ee3bf19964752a4e9447672df71d262478fba\", \"timestamp\": \"2026-06-05T11:01:00+00:00\"}",
+    "text": "Dee met Cy",
+    "told_at": "2026-06-05T11:01:00+00:00",
+    "uuid": "263ce2a221151505cc357ba29939f549",
+    "valid_at": "2026-06-05T11:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Bo: my name is Dee",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [],
+    "eventuality_mix": [
+     "state"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.25,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b5",
+    "message_text_sha256": "9df3fca833a5484f68325500bbe9790cec7090ce67a7a5a1c7ab82f6bf05b01b",
+    "mood": "declarative",
+    "name": "b5",
+    "order": 4,
+    "run": 0,
+    "sender": "06f4eff1d557cac99d012a04bf71d96b",
+    "sender_name": "Bo",
+    "session": 3,
+    "source": "message",
+    "source_description": "conv-kiln-session_3",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"5e872d43901d19260965dca600697977de7863fcf30363b9c87b5abb1365dd5b\", \"message_id\": \"b5\", \"order\": 4, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_3\", \"speaker\": \"Bo\", \"text\": \"my name is Dee\", \"text_sha256\": \"93cd8a1f265ecd13fc89f04060093fb8ad69e192d3ed10daffe9b588b3a95fbe\", \"timestamp\": \"2026-06-05T11:00:00+00:00\"}",
+    "text": "my name is Dee",
+    "told_at": "2026-06-05T11:00:00+00:00",
+    "uuid": "2b02467642d007f5bb13bef0d07c252f",
+    "valid_at": "2026-06-05T11:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k2",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-06T12:02:00+00:00",
+    "first_episode_uuid": "bab7f90cd1aaa79602faf269464961c5",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "bab7f90cd1aaa79602faf269464961c5",
+    "message_count": 1,
+    "name": "ep-6",
+    "run": 1,
+    "started_at": "2026-06-06T12:02:00+00:00",
+    "summary": "2026-06-06T12:02:00+00:00 to 2026-06-06T12:02:00+00:00; 1 messages; speakers: Dov",
+    "uuid": "324944887d7363d5bd984bfda93b5b0a"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Ana: I like apples",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "59ff219ea0feb81ce3a85e9e5342bb86"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.0,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b1",
+    "message_text_sha256": "9a28f7a8e3dcb883986f5c7b5ad55ad66cd1b2cf599c92a693eb3cde6dd9b152",
+    "mood": "declarative",
+    "name": "b1",
+    "order": 0,
+    "run": 0,
+    "sender": "0bff948d18dc98bbf84202dec9c16c4e",
+    "sender_name": "Ana",
+    "session": 1,
+    "source": "message",
+    "source_description": "conv-kiln-session_1",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"50219819bbccb44010d7db31b569eb3522e71da78e516ad9a8a98f4c07a5f135\", \"message_id\": \"b1\", \"order\": 0, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_1\", \"speaker\": \"Ana\", \"text\": \"I like apples\", \"text_sha256\": \"7d6cc9c290993bd6aa8b72931f5def8e240b20751f1f4cd58351d58cae93160b\", \"timestamp\": \"2026-06-03T09:00:00+00:00\"}",
+    "text": "I like apples",
+    "told_at": "2026-06-03T09:00:00+00:00",
+    "uuid": "3cbbb8d928bca263fb5461f5492c3bbd",
+    "valid_at": "2026-06-03T09:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k1",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-03T09:02:00+00:00",
+    "first_episode_uuid": "beefe48660cdbec94510103a3836155d",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "beefe48660cdbec94510103a3836155d",
+    "message_count": 1,
+    "name": "ep-2",
+    "run": 0,
+    "started_at": "2026-06-03T09:02:00+00:00",
+    "summary": "2026-06-03T09:02:00+00:00 to 2026-06-03T09:02:00+00:00; 1 messages; speakers: Eli",
+    "uuid": "3ef4b224c46dd4608e7c8043730b272f"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "pears",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "79d506e66570e798c9fb40f55e80f64b",
+    "event_key": "0001/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Mira like pears",
+    "message_id": "b2",
+    "modality": "actual",
+    "name": "like.01: arg0 Mira; arg1 pears",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_1",
+    "source_text": "Mira likes pears.",
+    "summary": "like.01: arg0 Mira; arg1 pears",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:01:00+00:00",
+    "uuid": "43aeb1094b8c2c5806a2febde27ec70f",
+    "valid_at": "2026-06-03T09:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Roleset"
+   ],
+   "props": {
+    "compiled_sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+    "created_at": "2026-10-07T00:00:00Z",
+    "examples": [
+     "Ana: I like apples",
+     "Bo: Mira likes pears"
+    ],
+    "first_run": 0,
+    "gloss": "like (roles: arg0 = liker, arg1 = thing liked)",
+    "gloss_source": "frames",
+    "group_id": "mk20-test-5eed0004",
+    "label": "occurrence",
+    "p_yes_json": "{\"evaluation\": 0.05, \"occurrence\": 0.9, \"speech_act\": 0.05, \"state\": 0.05}",
+    "roleset": "like.01",
+    "uuid": "49700b7a5d94000f89491c7939146955"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Roleset"
+   ],
+   "props": {
+    "compiled_sha256": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+    "created_at": "2026-10-07T00:00:00Z",
+    "examples": [
+     "Bo: my name is Dee"
+    ],
+    "first_run": 0,
+    "gloss": "be (roles: arg1 = topic, arg2 = comment)",
+    "gloss_source": "frames",
+    "group_id": "mk20-test-5eed0004",
+    "label": "state",
+    "p_yes_json": "{\"evaluation\": 0.05, \"occurrence\": 0.05, \"speech_act\": 0.05, \"state\": 0.9}",
+    "roleset": "be.01",
+    "uuid": "52e9816ecc55898c14f951491290c6eb"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Eli: I like plums",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "48c9f90e16e0b276074bda10e81b1a89"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.375,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b7",
+    "message_text_sha256": "0d8616849019751b29fc0dd31fdd600bc971f718f2776ae46757409ae33dfa89",
+    "mood": "declarative",
+    "name": "b7",
+    "order": 6,
+    "reply_to": "263ce2a221151505cc357ba29939f549",
+    "run": 0,
+    "sender": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+    "sender_name": "Eli",
+    "session": 3,
+    "source": "message",
+    "source_description": "conv-kiln-session_3",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"9d75ecaf830d62c25a3062b3d5d09a3cf12f0757c4cdaa3c89d73266e86c4c63\", \"message_id\": \"b7\", \"order\": 6, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_3\", \"speaker\": \"Eli\", \"text\": \"I like plums\", \"text_sha256\": \"db3b5bb63225682e268922419cce35f5a1a03d429c665b5813339b10a5edbca5\", \"timestamp\": \"2026-06-05T11:02:00+00:00\"}",
+    "text": "I like plums",
+    "told_at": "2026-06-05T11:02:00+00:00",
+    "uuid": "537121a1ca8cfac3ce2b414839cd97b2",
+    "valid_at": "2026-06-05T11:02:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "BonfireMeta"
+   ],
+   "props": {
+    "agent_handle_runs": [
+     0,
+     1
+    ],
+    "agent_handles": [
+     "@helper",
+     "@scribe"
+    ],
+    "bonfire_id": "conv-kiln",
+    "boundary_policy": "segmenter",
+    "build_config_json": "{\"boundary_policy\": \"segmenter\", \"group\": \"mk20-test-5eed0004\", \"ingest_pass\": \"mk-conv-kiln-001\", \"referent_policy\": \"structure\", \"sample_id\": \"conv-kiln\"}",
+    "chat_tagged": true,
+    "committed_run": 1,
+    "created_at": "2026-10-07T00:00:00Z",
+    "explicit_since": 1,
+    "extraction_model_json": "{\"name\": \"fixture-parser\", \"version\": \"0\"}",
+    "group_id": "mk20-test-5eed0004",
+    "query_cache_key": "5ff92ca1eb14",
+    "recipe_tag": "kiln-recipe",
+    "schema": "mk-bonfire/v3",
+    "sessions": 4,
+    "uuid": "57b0fe048a49f4c5bc3fff0fca74b748"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": false,
+    "mint_kind": "entity",
+    "minted_order": [
+     0,
+     1
+    ],
+    "name": "Mira",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "mira",
+    "run": 0,
+    "summary": "",
+    "uuid": "5aa6f0938c6071aa9908586c5814ae1d"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "plums",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "537121a1ca8cfac3ce2b414839cd97b2",
+    "event_key": "0006/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-05",
+    "happened_at_grain": "day",
+    "key_text": "Eli like plums",
+    "message_id": "b7",
+    "modality": "actual",
+    "name": "like.01: arg0 Eli; arg1 plums",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_3",
+    "source_text": "Eli likes plums.",
+    "summary": "like.01: arg0 I; arg1 plums",
+    "time_source": "told_default",
+    "told_at": "2026-06-05T11:02:00+00:00",
+    "uuid": "6a9b2c805f56bb083bf4ccecacd61f9c",
+    "valid_at": "2026-06-05T11:02:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressee": "0bff948d18dc98bbf84202dec9c16c4e",
+    "addressee_name": "Ana",
+    "addressees": [
+     "Ana"
+    ],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Bo: Mira likes pears",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "3f323077005f720361d308519534b94d"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.0625,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b2",
+    "message_text_sha256": "1af02af7063d0e6976e63250324bd4495ebb761ac36bda96dd865318874a12da",
+    "mood": "declarative",
+    "name": "b2",
+    "order": 1,
+    "reply_to": "3cbbb8d928bca263fb5461f5492c3bbd",
+    "run": 0,
+    "sender": "06f4eff1d557cac99d012a04bf71d96b",
+    "sender_name": "Bo",
+    "session": 1,
+    "source": "message",
+    "source_description": "conv-kiln-session_1",
+    "source_row_json": "{\"addressees\": [\"Ana\"], \"attachments\": [], \"content_sha256\": \"88915eebd6816bfa5a0651ad0df511fb7cfa2c36925eaf446ec4cf881b68aa2f\", \"message_id\": \"b2\", \"order\": 1, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_1\", \"speaker\": \"Bo\", \"text\": \"Mira likes pears\", \"text_sha256\": \"2cfd70c40579d4103526e681bd9ad0b9bcf873b4f8b1e1b3a814ef336d35fc07\", \"timestamp\": \"2026-06-03T09:01:00+00:00\"}",
+    "text": "Mira likes pears",
+    "told_at": "2026-06-03T09:01:00+00:00",
+    "uuid": "79d506e66570e798c9fb40f55e80f64b",
+    "valid_at": "2026-06-03T09:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k2",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-04T10:00:00+00:00",
+    "first_episode_uuid": "ee98f50bd5087db0a39981f4f6ebd6c7",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "ee98f50bd5087db0a39981f4f6ebd6c7",
+    "message_count": 1,
+    "name": "ep-3",
+    "run": 0,
+    "started_at": "2026-06-04T10:00:00+00:00",
+    "summary": "2026-06-04T10:00:00+00:00 to 2026-06-04T10:00:00+00:00; 1 messages; speakers: Dov",
+    "uuid": "7ebabc30884c50ad5ef60e2b3d87d2cd"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressee": "0bff948d18dc98bbf84202dec9c16c4e",
+    "addressee_name": "Ana",
+    "addressees": [
+     "Ana"
+    ],
+    "chat": "k2",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Dov: Eli likes pears",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "d082dfca48d3c5125861549cbc3329c9"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     6.3125,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "a2",
+    "message_text_sha256": "de3b8851cbc7448f939b717f214e474cc8259a6253556d2dc35550240a70653f",
+    "mood": "declarative",
+    "name": "a2",
+    "order": 8,
+    "reply_to": "c2f286629aed20f3cd655f1398be415a",
+    "run": 1,
+    "sender": "f1e2a20ed755da8331929794b4f42e09",
+    "sender_name": "Dov",
+    "session": 4,
+    "source": "message",
+    "source_description": "conv-kiln-session_4",
+    "source_row_json": "{\"addressees\": [\"Ana\"], \"attachments\": [], \"content_sha256\": \"b72ac5b7ffb799cf93fdc3d5495ea585893d0335793547e6608319ea8480d7db\", \"message_id\": \"a2\", \"order\": 8, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_4\", \"speaker\": \"Dov\", \"text\": \"Eli likes pears\", \"text_sha256\": \"903c8ac240c77e01e016883a9ec204564cd9062790162dd742bce37127681561\", \"timestamp\": \"2026-06-06T12:01:00+00:00\"}",
+    "text": "Eli likes pears",
+    "told_at": "2026-06-06T12:01:00+00:00",
+    "uuid": "8e7cc6f926508cc79f57bc788db86920",
+    "valid_at": "2026-06-06T12:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Route"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "first_run": 1,
+    "group_id": "mk20-test-5eed0004",
+    "key": "mira",
+    "uuid": "91719f30b0ab8f5df108a22c1091cabb"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Route"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "first_run": 0,
+    "group_id": "mk20-test-5eed0004",
+    "key": "dee",
+    "uuid": "936ef880e270c54bda1c14b876bc6eb4"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "apples",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "3cbbb8d928bca263fb5461f5492c3bbd",
+    "event_key": "0000/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Ana like apples",
+    "message_id": "b1",
+    "modality": "actual",
+    "name": "like.01: arg0 Ana; arg1 apples",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_1",
+    "source_text": "Ana likes apples.",
+    "summary": "like.01: arg0 I; arg1 apples",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:00:00+00:00",
+    "uuid": "9d0906577085510815b9b86de2100738",
+    "valid_at": "2026-06-03T09:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Roleset"
+   ],
+   "props": {
+    "compiled_sha256": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+    "created_at": "2026-10-07T00:00:00Z",
+    "examples": [
+     "Dov: Gil owns plums"
+    ],
+    "first_run": 1,
+    "gloss": "own (roles: arg0 = owner, arg1 = possession)",
+    "gloss_source": "frames",
+    "group_id": "mk20-test-5eed0004",
+    "label": "state",
+    "p_yes_json": "{\"evaluation\": 0.05, \"occurrence\": 0.05, \"speech_act\": 0.05, \"state\": 0.9}",
+    "roleset": "own.01",
+    "uuid": "9f48c63e0abd2271ee6c35bd4c992282"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k2",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Dov: Gil owns plums",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [],
+    "eventuality_mix": [
+     "state"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     6.375,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "a3",
+    "message_text_sha256": "a79d37786740e9da531a0cc1e0b6efa88e187b074a471a54d84d4df3a5a8d1fc",
+    "mood": "declarative",
+    "name": "a3",
+    "order": 9,
+    "run": 1,
+    "sender": "f1e2a20ed755da8331929794b4f42e09",
+    "sender_name": "Dov",
+    "session": 4,
+    "source": "message",
+    "source_description": "conv-kiln-session_4",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"16bb6af77ae27dfe51848ead20736b5c7a62e0f5e0b42ee427aa7c682a4f5f03\", \"message_id\": \"a3\", \"order\": 9, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_4\", \"speaker\": \"Dov\", \"text\": \"Gil owns plums\", \"text_sha256\": \"99cd3626b967cdaf039c83a9b42546f54993f982812f7f263c10ea9dfeb45ad2\", \"timestamp\": \"2026-06-06T12:02:00+00:00\"}",
+    "text": "Gil owns plums",
+    "told_at": "2026-06-06T12:02:00+00:00",
+    "uuid": "bab7f90cd1aaa79602faf269464961c5",
+    "valid_at": "2026-06-06T12:02:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "figs",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "beefe48660cdbec94510103a3836155d",
+    "event_key": "0002/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-03",
+    "happened_at_grain": "day",
+    "key_text": "Eli like figs",
+    "message_id": "b3",
+    "modality": "actual",
+    "name": "like.01: arg0 Eli; arg1 figs",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_1",
+    "source_text": "Eli likes figs.",
+    "summary": "like.01: arg0 Eli; arg1 figs",
+    "time_source": "told_default",
+    "told_at": "2026-06-03T09:02:00+00:00",
+    "uuid": "bb423a860e45bd0a2bbf70a1299eb738",
+    "valid_at": "2026-06-03T09:02:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "263ce2a221151505cc357ba29939f549",
+    "event_key": "0005/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-05",
+    "happened_at_grain": "day",
+    "key_text": "Dee meet Cy",
+    "message_id": "b6",
+    "modality": "actual",
+    "name": "meet.01: arg0 Bo; arg1 Cy",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "meet.01",
+    "session_id": "conv-kiln-session_3",
+    "source_text": "Dee met Cy.",
+    "summary": "meet.01: arg0 Dee; arg1 Cy",
+    "time_source": "told_default",
+    "told_at": "2026-06-05T11:01:00+00:00",
+    "uuid": "be711301c8315cbb31186d4f6f2a419b",
+    "valid_at": "2026-06-05T11:01:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [
+     "helper"
+    ],
+    "chat": "k1",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Eli: Eli likes figs",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "f7c78bec2e1bc0b8cad78e65d151fc0a"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.125,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b3",
+    "message_text_sha256": "747c76614f5037e5359e58211d79d4524ba5dd83e70c350e81c0aeffcd20667f",
+    "mood": "declarative",
+    "name": "b3",
+    "order": 2,
+    "reply_to": "79d506e66570e798c9fb40f55e80f64b",
+    "run": 0,
+    "sender": "1c1ebd7d7c71f811aa73f29c5d5164bb",
+    "sender_name": "Eli",
+    "session": 1,
+    "source": "message",
+    "source_description": "conv-kiln-session_1",
+    "source_row_json": "{\"addressees\": [\"helper\"], \"attachments\": [], \"content_sha256\": \"73531fed1eda66e4d95f59a6e9cae2f7748f37af10f62103a294a3570f07dfd4\", \"message_id\": \"b3\", \"order\": 2, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_1\", \"speaker\": \"Eli\", \"text\": \"Eli likes figs\", \"text_sha256\": \"d2b0b3e03512012110d547d15bbef337830c248698d1fa7f8c7862b4c779b656\", \"timestamp\": \"2026-06-03T09:02:00+00:00\"}",
+    "text": "Eli likes figs",
+    "told_at": "2026-06-03T09:02:00+00:00",
+    "uuid": "beefe48660cdbec94510103a3836155d",
+    "valid_at": "2026-06-03T09:02:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [],
+    "chat": "k2",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Ana: my name is Mira",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [],
+    "eventuality_mix": [
+     "state"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     6.25,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "a1",
+    "message_text_sha256": "f059adb6c8d45a5236de7ed3ed28aed6d556cfd547cc8e43a2fe6c90ef44ff2d",
+    "mood": "declarative",
+    "name": "a1",
+    "order": 7,
+    "run": 1,
+    "sender": "0bff948d18dc98bbf84202dec9c16c4e",
+    "sender_name": "Ana",
+    "session": 4,
+    "source": "message",
+    "source_description": "conv-kiln-session_4",
+    "source_row_json": "{\"addressees\": [], \"attachments\": [], \"content_sha256\": \"a25cb82783e6935114d83beeb02efd5af78387b4271d16bcd9c9410cbbd3d763\", \"message_id\": \"a1\", \"order\": 7, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_4\", \"speaker\": \"Ana\", \"text\": \"my name is Mira\", \"text_sha256\": \"bba7ef62a40cce31d0f2bd90b0af653a079ef299cb5b25d0ab74573385a0025c\", \"timestamp\": \"2026-06-06T12:00:00+00:00\"}",
+    "text": "my name is Mira",
+    "told_at": "2026-06-06T12:00:00+00:00",
+    "uuid": "c2f286629aed20f3cd655f1398be415a",
+    "valid_at": "2026-06-06T12:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Event"
+   ],
+   "props": {
+    "anchor": [
+     1
+    ],
+    "arg1_text": "plums",
+    "asserted": true,
+    "created_at": "2026-10-07T00:00:00Z",
+    "episode_uuid": "ee98f50bd5087db0a39981f4f6ebd6c7",
+    "event_key": "0003/unit-00.json#0",
+    "eventuality": "occurrence",
+    "eventuality_p_occurrence": 1.0,
+    "eventuality_source": "context",
+    "group_id": "mk20-test-5eed0004",
+    "happened_at": "2026-06-04",
+    "happened_at_grain": "day",
+    "key_text": "Bo like plums",
+    "message_id": "b4",
+    "modality": "actual",
+    "name": "like.01: arg0 Bo; arg1 plums",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "plan": "lang:occurrence@a9b01dff",
+    "roleset": "like.01",
+    "session_id": "conv-kiln-session_2",
+    "source_text": "Bo likes plums.",
+    "summary": "like.01: arg0 Bo; arg1 plums",
+    "time_source": "told_default",
+    "told_at": "2026-06-04T10:00:00+00:00",
+    "uuid": "c98599ce05aee6c8680f555dd35b32b0",
+    "valid_at": "2026-06-04T10:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k1",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-03T09:01:00+00:00",
+    "first_episode_uuid": "3cbbb8d928bca263fb5461f5492c3bbd",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "79d506e66570e798c9fb40f55e80f64b",
+    "message_count": 2,
+    "name": "ep-1",
+    "run": 0,
+    "started_at": "2026-06-03T09:00:00+00:00",
+    "summary": "2026-06-03T09:00:00+00:00 to 2026-06-03T09:01:00+00:00; 2 messages; speakers: Ana, Bo",
+    "uuid": "ce33450090da0e4b91d387615c3924bf"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": false,
+    "group_id": "mk20-test-5eed0004",
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": false,
+    "mint_kind": "entity",
+    "minted_order": [
+     1,
+     2
+    ],
+    "name": "Gil",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "gil",
+    "run": 1,
+    "summary": "[Dov, 2026-06-06] Gil owns plums.",
+    "summary_identity_line_ids": [],
+    "summary_line_ids": [
+     "72da22f739b3a3e3a929c672a9947692"
+    ],
+    "summary_line_texts": [
+     "[Dov, 2026-06-06] Gil owns plums."
+    ],
+    "summary_sources": [
+     "bab7f90cd1aaa79602faf269464961c5"
+    ],
+    "uuid": "d28d428e1fd26d82ae4ce52d08cacc8a"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Episodic"
+   ],
+   "props": {
+    "act": "assert",
+    "addressees": [
+     "scribe"
+    ],
+    "chat": "k2",
+    "clause_acts": [
+     "assert"
+    ],
+    "content": "Dov: Bo likes plums",
+    "created_at": "2026-10-07T00:00:00Z",
+    "entity_edges": [
+     "e52f474730571a01a4aa1431659994f9"
+    ],
+    "eventuality_mix": [
+     "occurrence"
+    ],
+    "group_id": "mk20-test-5eed0004",
+    "message_embedding": [
+     0.1875,
+     0.5
+    ],
+    "message_embedding_model": "voyage-3/document",
+    "message_id": "b4",
+    "message_text_sha256": "ced040dd8afde209595ecf66b438ae8beb12d312c469e49ba6b752461a40cc7f",
+    "mood": "declarative",
+    "name": "b4",
+    "order": 3,
+    "run": 0,
+    "sender": "f1e2a20ed755da8331929794b4f42e09",
+    "sender_name": "Dov",
+    "session": 2,
+    "source": "message",
+    "source_description": "conv-kiln-session_2",
+    "source_row_json": "{\"addressees\": [\"scribe\"], \"attachments\": [], \"content_sha256\": \"5af4d5d58ca5d08b0cdfc723b014b069601365d09929814d73e9cc1bcb457206\", \"message_id\": \"b4\", \"order\": 3, \"schema_version\": \"discourse-source/v1\", \"scope\": {\"bonfire_id\": \"bf-kiln\", \"conversation_id\": \"conv-kiln\"}, \"session_id\": \"conv-kiln-session_2\", \"speaker\": \"Dov\", \"text\": \"Bo likes plums\", \"text_sha256\": \"078015f7c00cd507777c555947edc8da0c52faa010e90629b0265dfc7b006628\", \"timestamp\": \"2026-06-04T10:00:00+00:00\"}",
+    "text": "Bo likes plums",
+    "told_at": "2026-06-04T10:00:00+00:00",
+    "uuid": "ee98f50bd5087db0a39981f4f6ebd6c7",
+    "valid_at": "2026-06-04T10:00:00+00:00"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Entity",
+    "Person"
+   ],
+   "props": {
+    "created_at": "2026-10-07T00:00:00Z",
+    "ground_legacy": true,
+    "group_id": "mk20-test-5eed0004",
+    "kind_loc_roles": 0,
+    "kind_located": false,
+    "kind_person": true,
+    "mint_kind": "person",
+    "minted_order": [
+     0,
+     3
+    ],
+    "name": "Dov",
+    "name_embedding": [
+     0.25,
+     0.75
+    ],
+    "name_key": "dov",
+    "run": 0,
+    "summary": "",
+    "uuid": "f1e2a20ed755da8331929794b4f42e09"
+   }
+  },
+  {
+   "labels_neo4j": [
+    "Saga"
+   ],
+   "props": {
+    "chat": "k1",
+    "created_at": "2026-10-07T00:00:00Z",
+    "ended_at": "2026-06-05T11:02:00+00:00",
+    "first_episode_uuid": "2b02467642d007f5bb13bef0d07c252f",
+    "group_id": "mk20-test-5eed0004",
+    "ingest_pass": [
+     "mk-conv-kiln-001"
+    ],
+    "language_version": "dc2cb8e7",
+    "last_episode_uuid": "537121a1ca8cfac3ce2b414839cd97b2",
+    "message_count": 3,
+    "name": "ep-4",
+    "run": 0,
+    "started_at": "2026-06-05T11:00:00+00:00",
+    "summary": "2026-06-05T11:00:00+00:00 to 2026-06-05T11:02:00+00:00; 3 messages; speakers: Ana, Bo, Eli",
+    "uuid": "fc8bc1f44d076cd6a202d1d924048d6b"
+   }
+  }
+ ]
+}

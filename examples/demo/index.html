@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>memory-kernel demo</title>
+<meta name="description" content="Ask a memory graph built from a short conversation.">
+<style>
+  :root {
+    --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #68645c; --line: #e2dfd6;
+    --accent: #b4441f; --accent-ink: #ffffff; --mark: #fbead9; --mark-line: #e7b48f;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16150f; --panel: #1f1e18; --ink: #efece3; --muted: #a39e92; --line: #35332a;
+      --accent: #e8794c; --accent-ink: #1c120c; --mark: #3a2619; --mark-line: #8a5433;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--sans); }
+  a { color: var(--accent); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 16px 56px; }
+  header { max-width: 640px; margin-bottom: 32px; }
+  .name { font: 600 14px/1 var(--mono); color: var(--accent); margin: 0 0 14px; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 12px; }
+  header p { color: var(--muted); margin: 0; }
+  .grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 6fr); gap: 24px; align-items: start; }
+  section { min-width: 0; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 10px; }
+
+  .why {
+    display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px; align-items: start;
+    padding: 28px 0; margin-bottom: 32px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  }
+  .why > div { min-width: 0; }
+  .why h2 { font-size: clamp(22px, 3vw, 26px); line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 14px; }
+  .why p { color: var(--muted); margin: 0 0 12px; }
+  .cost-box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px 16px; }
+  .cost { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.4; }
+  .cost caption { text-align: left; color: var(--muted); font-size: 13px; font-weight: 600; padding: 10px 0 8px; }
+  .cost th, .cost td { text-align: left; font-weight: 400; vertical-align: top; padding: 7px 10px 7px 0; border-top: 1px solid var(--line); }
+  .cost th[scope="row"] { color: var(--muted); }
+  .cost thead th { font-weight: 600; }
+  .cost tr > :last-child { padding-right: 0; }
+  .cost td { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .cost code { font: 13px/1.4 var(--mono); white-space: nowrap; }
+  .cost small { display: block; color: var(--muted); font-size: 13px; }
+  .cost .total th, .cost .total td { color: var(--ink); font-weight: 600; font-size: 16px; }
+  .cost .total td:nth-child(2) { color: var(--accent); }
+  .how { margin-top: 12px; }
+  .how ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  .how li { margin-bottom: 6px; }
+
+  form { display: flex; gap: 8px; }
+  input {
+    flex: 1; min-width: 0; font: inherit; color: inherit; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  }
+  input:focus-visible, button:focus-visible, .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 8px;
+    background: var(--accent); color: var(--accent-ink); padding: 12px 18px;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+  .chip {
+    font: inherit; font-size: 14px; font-weight: 400; text-align: left; color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px;
+  }
+  .chip:hover { border-color: var(--accent); }
+
+  .result { margin-top: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+  .result[hidden] { display: none; }
+  .asked { color: var(--muted); font-size: 14px; margin: 0 0 6px; }
+  .answer { font-size: 22px; line-height: 1.3; font-weight: 600; margin: 0 0 18px; overflow-wrap: anywhere; }
+  .answer.error { color: var(--accent); font-size: 16px; font-weight: 400; }
+  .evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .evidence li { font-size: 15px; border-left: 3px solid var(--mark-line); padding-left: 12px; }
+  .evidence .who { font-weight: 600; }
+  .evidence .when { color: var(--muted); font-size: 13px; display: block; }
+  .meta { color: var(--muted); font: 13px/1.5 var(--mono); margin: 16px 0 0; }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  pre {
+    font: 12.5px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0;
+    max-height: 320px; overflow: auto; color: var(--muted);
+  }
+
+  .chat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 20px 20px; }
+  .session { font-size: 13px; color: var(--muted); margin: 18px 0 8px; }
+  .turn { padding: 6px 10px; margin: 0 -10px; border-radius: 6px; font-size: 15px; transition: background 0.2s; }
+  .turn .who { font-weight: 600; }
+  .turn.hit { background: var(--mark); }
+
+  footer { margin-top: 40px; color: var(--muted); font-size: 14px; max-width: 640px; }
+  footer p { margin: 0 0 8px; }
+
+  @media (max-width: 820px) {
+    .wrap { padding-top: 28px; }
+    .grid, .why { grid-template-columns: minmax(0, 1fr); }
+    .why { gap: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .turn { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="name">memory-kernel 2.0</p>
+    <h1>Ask a memory built from a conversation</h1>
+    <p>This graph was built from the short chat on this page. Ask about Priya and Tomas, and the kernel answers from what
+      they said, with the messages it used.</p>
+  </header>
+
+  <section class="why" aria-labelledby="why-heading">
+    <div>
+      <h2 id="why-heading">The grammar turns knowledge-graph extraction into multiple choice</h2>
+      <p>Graphiti pays a language model to read each message and write out its entities and facts. The kernel's grammar
+        does that reading on your own machine and writes the options, so the decisions left over can go to a model that
+        only picks between them.</p>
+      <p>Extraction and deduplication were almost all of Graphiti's bill on this conversation. They cost the kernel
+        nothing.</p>
+      <p>Across a full ten-conversation benchmark that comes to about half the cost: $2.36 for the kernel, against $4.82
+        for Mem0 and $5.49 for Graphiti <a href="https://arxiv.org/abs/2601.07978">as measured by KTH</a>.</p>
+    </div>
+    <div>
+      <div class="cost-box">
+        <table class="cost">
+          <caption>Building a graph from these 24 messages</caption>
+          <thead>
+            <tr><td></td><th scope="col">memory-kernel 2.0</th><th scope="col">Graphiti 0.31</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">Model</th>
+              <td><code>jev-1.13</code><small>only picks</small></td>
+              <td><code>gpt-4.1-mini</code><small>writes text</small></td>
+            </tr>
+            <tr><th scope="row">Model requests</th><td>about 100</td><td>86</td></tr>
+            <tr><th scope="row">Input tokens</th><td>about 177,000</td><td>167,000</td></tr>
+            <tr><th scope="row">Extraction</th><td>$0</td><td>$0.0514</td></tr>
+            <tr><th scope="row">Deduplication</th><td>$0</td><td>$0.0207</td></tr>
+            <tr><th scope="row">Everything else</th><td>$0.0076</td><td>$0.0010</td></tr>
+            <tr class="total"><th scope="row">Total</th><td>$0.0076</td><td>$0.0731</td></tr>
+            <tr><th scope="row">Build time</th><td>about 290 s</td><td>278 s</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <details class="how">
+        <summary>How these were measured</summary>
+        <ul>
+          <li>Both builds read the same 24 messages and embed with <code>voyage-3</code>. Graphiti is graphiti-core 0.31.2
+            with default ingestion, in its <code>json_object</code> mode through OpenRouter.</li>
+          <li>Graphiti's bill depends on the model you give it: the same tokens would cost about $0.027 on
+            <code>gpt-4o-mini</code>. It can't run on <code>jev-1.13</code>, which only picks between options.</li>
+          <li>This conversation is too short to show Graphiti's summary costs. It appends new facts to an entity's summary
+            for free, then pays the model to rewrite it past 2,000 characters. That was 2 of its 86 calls here, and busy
+            entities trigger it more often as a graph grows.</li>
+          <li>This is a full build, which settles duplicates from the parse. Appending later can ask the picking model a
+            yes or no on a hard case.</li>
+          <li>Neither bill counts compute. The kernel's parsing runs on your own hardware.</li>
+          <li>On that benchmark, Mem0 and Graphiti are OpenAI spend on <code>gpt-4o-mini</code>. The kernel's $2.36 is
+            calculated: it adds up the build stages this version keeps from our last full run.</li>
+        </ul>
+      </details>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section aria-labelledby="ask-heading">
+      <h2 id="ask-heading">Ask</h2>
+      <form id="form">
+        <input id="q" name="q" maxlength="200" autocomplete="off" aria-label="Your question"
+               placeholder="What is Tomas building?">
+        <button id="go" type="submit">Ask</button>
+      </form>
+      <ul class="chips" id="chips"></ul>
+
+      <div class="result" id="result" aria-live="polite" hidden>
+        <p class="asked" id="asked"></p>
+        <p class="answer" id="answer"></p>
+        <div id="sources" hidden>
+          <h2 id="evidence-heading">Where it came from</h2>
+          <ul class="evidence" id="evidence"></ul>
+          <p class="meta" id="meta"></p>
+          <details>
+            <summary>What the kernel retrieved</summary>
+            <pre id="context"></pre>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="chat-heading">
+      <h2 id="chat-heading">The conversation</h2>
+      <div class="chat" id="chat"></div>
+    </section>
+  </div>
+
+  <footer>
+    <p>The conversation is invented. Your question goes to OpenRouter and Voyage AI to be answered, so don't type anything
+      private.</p>
+    <p><a href="https://github.com/Bonfires-ai/memory-kernel">memory-kernel on GitHub</a></p>
+  </footer>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+
+  function showConversation(sample) {
+    for (const session of sample.sessions) {
+      $("chat").append(el("p", "session", session.when));
+      for (const message of session.messages) {
+        const turn = el("div", "turn");
+        turn.id = "m-" + message.id;
+        turn.append(el("span", "who", message.speaker + ": "), document.createTextNode(message.text));
+        $("chat").append(turn);
+      }
+    }
+    for (const question of sample.questions) {
+      const item = el("li");
+      const chip = el("button", "chip", question);
+      chip.type = "button";
+      chip.addEventListener("click", () => { $("q").value = question; ask(question); });
+      item.append(chip);
+      $("chips").append(item);
+    }
+  }
+
+  function markMessages(evidence) {
+    document.querySelectorAll(".turn.hit").forEach((turn) => turn.classList.remove("hit"));
+    for (const message of evidence) {
+      const turn = document.getElementById("m-" + message.id);
+      if (turn) turn.classList.add("hit");
+    }
+  }
+
+  function showAnswer(question, data) {
+    $("result").hidden = false;
+    $("asked").textContent = question;
+    $("answer").textContent = data.answer;
+    $("answer").classList.remove("error");
+    $("evidence").replaceChildren(...data.evidence.map((message) => {
+      const item = el("li");
+      item.append(el("span", "who", message.speaker + ": "), document.createTextNode(message.text),
+                  el("span", "when", message.when));
+      return item;
+    }));
+    $("evidence-heading").hidden = data.evidence.length === 0;
+    $("meta").textContent = "question shape: " + (data.shape || "none") +
+      (data.cached ? " · answered from cache" : " · " + data.seconds + " s");
+    $("context").textContent = data.context;
+    $("sources").hidden = false;
+    markMessages(data.evidence);
+  }
+
+  function showError(question, message) {
+    $("result").hidden = false;
+    $("asked").textContent = question;
+    $("answer").textContent = message;
+    $("answer").classList.add("error");
+    $("sources").hidden = true;
+    markMessages([]);
+  }
+
+  async function ask(question) {
+    $("go").disabled = true;
+    $("go").textContent = "Asking";
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await response.json();
+      if (response.ok) showAnswer(question, data);
+      else showError(question, data.error);
+    } catch {
+      showError(question, "The demo didn't answer. Check your connection and try again.");
+    } finally {
+      $("go").disabled = false;
+      $("go").textContent = "Ask";
+    }
+  }
+
+  $("form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const question = $("q").value.trim();
+    if (question) ask(question);
+  });
+
+  fetch("/api/sample").then((response) => response.json()).then(showConversation);
+</script>
+</body>
+</html>

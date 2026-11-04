@@ -1,0 +1,47 @@
+# Neo4j and MongoDB for the memory-kernel examples. Neo4j holds the graph that `mk build` writes into and `mk ask` reads
+# from. MongoDB holds each bonfire's kernel_ops record (its spend and its append lease). Both listen on localhost only.
+#
+# Start:   NEO4J_PASSWORD='choose-a-password' docker compose -f examples/docker-compose.yml up -d --wait
+# Stop:    docker compose -f examples/docker-compose.yml down        (add -v to delete the data volumes too)
+#
+# Then give the same password to `mk` in its environment: NEO4J_PASSWORD='choose-a-password' mk build ...
+# `mk` connects to bolt://localhost:7687 as user `neo4j` by default (--neo4j-uri / --neo4j-user change that).
+# Point `mk` at MongoDB with MK_OPS_URI='mongodb://localhost:27017' (or --ops-uri).
+#
+# The password has no default on purpose: compose refuses to start without one.
+name: memory-kernel-example
+
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD to a password of your choice}
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      # The HTTP root answers without credentials, so a password change cannot make a healthy database look sick.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep -q 1"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+volumes:
+  neo4j-data:
+  mongo-data:

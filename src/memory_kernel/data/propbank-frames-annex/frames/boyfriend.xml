@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE frameset PUBLIC "-//PB//PropBank Frame v3.4 Transitional//EN" "http://propbank.org/specification/dtds/v3.4/frameset.dtd">
+<frameset>
+  <predicate lemma="boyfriend">
+    <roleset id="boyfriend.01" name="relational noun: ARG1 is a romantic partner of ARG0">
+      <aliases>
+        <alias pos="n">boyfriend</alias>
+      </aliases>
+      <roles>
+        <role descr="relatum -- the possessor whose boyfriend this is" f="PAG" n="0"/>
+        <role descr="the related person -- the one who is a romantic partner of ARG0" f="PPT" n="1"/>
+      </roles>
+    </roleset>
+  </predicate>
+</frameset>

@@ -1,0 +1,186 @@
+{
+  "sample_id": "example-dialogue",
+  "conversation": {
+    "speaker_a": "Priya",
+    "speaker_b": "Tomas",
+    "session_1_date_time": "1:15 pm on 3 March, 2025",
+    "session_1": [
+      {
+        "speaker": "Priya",
+        "dia_id": "D1:1",
+        "text": "Hi Tomas! I finally signed up for the beekeeping course I told you about."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D1:2",
+        "text": "That is great news, Priya. When does it start?"
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D1:3",
+        "text": "It starts next Tuesday evening at the community allotment near my office."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D1:4",
+        "text": "Nice. I have been busy building a telescope from a kit in my flat, so I am a bit jealous of your free evenings."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D1:5",
+        "text": "How is the telescope going?"
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D1:6",
+        "text": "Slowly. The tube arrived yesterday and I am varnishing the wooden stand this weekend."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D1:7",
+        "text": "A varnished stand sounds lovely. Send me a photo when it is finished!"
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D1:8",
+        "text": "I will. Good luck with the first lesson."
+      }
+    ],
+    "session_2_date_time": "6:40 pm on 18 March, 2025",
+    "session_2": [
+      {
+        "speaker": "Tomas",
+        "dia_id": "D2:1",
+        "text": "Hey Priya, how was your first beekeeping lesson?"
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D2:2",
+        "text": "It was nerve-racking but fun. I wore the full suit, and the teacher said I was too hasty with the smoker."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D2:3",
+        "text": "Ha, that sounds like a good start. Did you meet anyone there?"
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D2:4",
+        "text": "Yes, a retired ferry captain named Oskar works the next hive over, and he gave me a few tips."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D2:5",
+        "text": "I finished varnishing the stand last Sunday. The walnut stain turned out darker than I expected."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D2:6",
+        "text": "I would love to see it. Are you still planning the trip to the island in April?"
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D2:7",
+        "text": "Yes, I booked the ferry for the second weekend of April. I want to walk the lighthouse path."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D2:8",
+        "text": "Take a warm coat. The weather out there is unpredictable."
+      }
+    ],
+    "session_3_date_time": "9:05 am on 12 April, 2025",
+    "session_3": [
+      {
+        "speaker": "Priya",
+        "dia_id": "D3:1",
+        "text": "Good morning Tomas! Did you get back from the island?"
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D3:2",
+        "text": "Yes, last night. The walk was wonderful, although it was foggy for two hours, so your advice about the coat was right."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D3:3",
+        "text": "I am glad you were prepared. I opened my first hive this week and found the queen."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D3:4",
+        "text": "That is a big moment. Are you going to keep taking the course?"
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D3:5",
+        "text": "Definitely. I signed up for the advanced beekeeping course that starts in May."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D3:6",
+        "text": "Then I owe you a visit. I want to see the hives and show you the telescope."
+      },
+      {
+        "speaker": "Priya",
+        "dia_id": "D3:7",
+        "text": "Come over on the last Saturday of April. I will cook dinner."
+      },
+      {
+        "speaker": "Tomas",
+        "dia_id": "D3:8",
+        "text": "It is a date. I will bring dessert."
+      }
+    ]
+  },
+  "qa": [
+    {
+      "question": "What did Priya sign up for?",
+      "answer": "A beekeeping course",
+      "evidence": [
+        "D1:1"
+      ],
+      "category": 1
+    },
+    {
+      "question": "What is Tomas building from a kit?",
+      "answer": "A telescope",
+      "evidence": [
+        "D1:4"
+      ],
+      "category": 1
+    },
+    {
+      "question": "Who did Priya meet at the beekeeping course?",
+      "answer": "Oskar, a retired ferry captain",
+      "evidence": [
+        "D2:4"
+      ],
+      "category": 1
+    },
+    {
+      "question": "When did Tomas plan to travel to the island?",
+      "answer": "The second weekend of April 2025",
+      "evidence": [
+        "D2:7"
+      ],
+      "category": 2
+    },
+    {
+      "question": "What did Priya find when she opened her first hive?",
+      "answer": "The queen",
+      "evidence": [
+        "D3:3"
+      ],
+      "category": 1
+    },
+    {
+      "question": "What course did Priya sign up for next?",
+      "answer": "The advanced beekeeping course starting in May",
+      "evidence": [
+        "D3:5"
+      ],
+      "category": 1
+    }
+  ]
+}
