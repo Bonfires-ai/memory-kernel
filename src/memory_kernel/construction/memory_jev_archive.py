@@ -50,7 +50,9 @@ def read_jev_archive(wire: Mapping[str, Any], archive: Mapping[str, str],
     if not isinstance(raw, Mapping) or not model_family_ok(MODEL, str(raw.get("model"))):
         raise JevArchiveError("provider response model differs")
     usage = raw.get("usage")
-    if not isinstance(usage, Mapping) or set(usage) != {"input_tokens", "output_tokens", "cost"}:
+    # The provider may add keys of its own (OpenRouter sends ``is_byok`` and ``cost_details``); the three metered ones
+    # must be present and are checked below, and the receipt keeps only those.
+    if not isinstance(usage, Mapping) or not {"input_tokens", "output_tokens", "cost"} <= set(usage):
         raise JevArchiveError("provider usage differs")
     if (any(type(usage[key]) is not int or usage[key] < 0 for key in ("input_tokens", "output_tokens"))
             or type(usage["cost"]) not in (int, float) or not math.isfinite(usage["cost"])

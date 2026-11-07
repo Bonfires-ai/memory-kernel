@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memory-kernel"
-version = "2.0.0"
+version = "2.0.1"
 description = "Standalone grammar-planned memory search kernel."
 # Apache-2.0 for the package; CC-BY-SA-4.0 for the PropBank frames annex it ships (data/propbank-frames-annex/, which
 # carries its own LICENSE and NOTICE; see NOTICE).

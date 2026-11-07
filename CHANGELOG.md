@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.1 (2026-11-07)
+
+- **A paid Jev call no longer stops the build when the provider adds fields to `usage`.** The archive reader required
+  `usage` to hold exactly `input_tokens`, `output_tokens` and `cost`, so a response that also carried `is_byok` and
+  `cost_details` stopped the build at `boundary` with `provider usage differs`. The three keys are still required and
+  their values are checked as before; extra keys are ignored, and the receipt and the ledger record keep only the three.
+
 ## 2.0.0 (2026-11-05)
 
 This release carries everything since 1.4.1. The 1.5 to 1.8 lines were never published on their own, so their notes
