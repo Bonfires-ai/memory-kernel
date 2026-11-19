@@ -211,6 +211,11 @@ def _loaded_sha256(store: Any) -> tuple[int, int, str]:
     return loaded, len(engine.cxns), hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+#: the pinned hashes are of the constructions the default parser (trf) compiles; the small model compiles other
+#: readings of the same rows. CI runs en_core_web_sm and the release check runs trf, so this is checked there.
+@pytest.mark.skipif(
+    os.environ.get("MK_EXTRACTION_SPACY_MODEL") == "en_core_web_sm", reason="the hashes are pinned on the trf parser"
+)
 @pytest.mark.parametrize("name", sorted(AT_3352780D))
 def test_a_grammar_with_no_clause_slot_loads_as_before(name: str):
     """No clause slot, no generated filler: the base grammar, a taught np-only grammar (a draft, and a store's own

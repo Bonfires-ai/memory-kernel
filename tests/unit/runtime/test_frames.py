@@ -688,6 +688,9 @@ def test_a_turn_refused_for_its_mark_never_composes(engine, tmp_path):
     assert plan.tool_steps == [] and plan.frames == [], (plan.tool_steps, plan.frames)
 
 
+#: the small model does not split a full-width or emoji question mark from the word before it, so the turn has no
+#: final mark to find. The release check runs this on trf.
+@needs_trf
 def test_a_question_mark_in_any_script_is_a_question():
     """A question mark is any punctuation or symbol character whose Unicode name says QUESTION ... MARK or INTERROBANG:
     the full-width one, the emoji, the inverted, Arabic and small ones too. A math relation with a question mark above
