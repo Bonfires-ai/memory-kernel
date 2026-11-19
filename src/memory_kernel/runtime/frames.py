@@ -32,8 +32,11 @@ ones ``RuntimeEngine.comprehend_all`` found) into Frame JSON, one shape from the
   order of ``specs``: both are afforded, and the agent chooses with both frames in view;
 * per analysis, its root: a card is a ``tool`` frame (roles keyed by the tool's parameters), a taught root a
   ``phrase``, a ``reply`` root a ``reply`` (named by its reply, no roles), any other root a ``question`` (named by its
-  id); each role is the slot's text cut from the turn (``TokenSpans.cut``: the NP cut, as the tool would get it), None
-  when the analysis left the slot without boundaries;
+  id); each role is the slot's text cut from the turn as the tool gets it: by the span op its filler applied on the
+  slot's exact offsets (``clause-span``: as written, ``TokenSpans.surface``; ``name-span``: the NP cut,
+  ``TokenSpans.cut``), and where none sits there (a slot left unfilled, or filled by a filler holding slots of its
+  own, "my {X}") by the slot's kind (a clause slot's as written, any other slot's the NP cut); None when the analysis
+  left the slot without boundaries;
 * ``complete``: the analysis passed its goal tests; ``analysis``: the reading's index; ``composed_with``: None here
   (a follow-up that composes with an open frame names it).
 
@@ -94,6 +97,11 @@ FRAME_KINDS: tuple[str, ...] = ("tool", "phrase", "editor", "reply", "question")
 COMPOSING_KINDS = frozenset({"tool", "phrase"})
 #: the most open frames a plan's context holds (each is read again in its forms: the context bounds the reads)
 MAX_CONTEXT = 8
+#: the slot kind whose text is a clause kept as written (``TokenSpans.surface``; its filler is ``store.CLAUSE_FILLER``)
+CLAUSE_FILLS = "clause"
+#: the span ops a filler names its slot's text with (the executor's keywords): the NP cut, and the text as written
+NAME_SPAN = "name-span"
+CLAUSE_SPAN = "clause-span"
 #: a context frame's keys: the Frame JSON's (``name``, ``kind`` and ``roles`` required)
 _REQUIRED = ("name", "kind", "roles")
 _OPTIONAL: Mapping[str, tuple[type, ...]] = {
@@ -396,21 +404,31 @@ def _root_frame(root: CxnSpec, reading: Reading, norm: Normalised, registry: Reg
         owner, slot = _HOLDER.match(holder), _SLOT_UNIT.match(unit)
         if owner is not None and slot is not None and spec_id(owner.group(1)) == root.id:
             spans.setdefault(slot.group(1), (left, right))
-    roles = {role: _cut(norm, spans.get(slot)) for slot, role in _slot_roles(root, registry).items()}
+    # the span op a filler applied on a slot's exact offsets cuts its role as the tool gets it; with none, its kind
+    ops = {(p[2], p[3]): p[0] for p in reading.meaning if len(p) == 4 and p[0] in (NAME_SPAN, CLAUSE_SPAN)}
+    fills = {p["slot"]: p.get("fills") for p in root.form if isinstance(p, dict)}
+    roles: dict[str, str | None] = {}
+    for slot, role in _slot_roles(root, registry).items():
+        span = spans.get(slot)
+        op = ops.get(span) if span is not None else None
+        roles[role] = _cut(norm, span, op == CLAUSE_SPAN or (op is None and fills.get(slot) == CLAUSE_FILLS))
     return {"name": name, "kind": kind, "construction": root.id, "roles": roles}
 
 
-def _cut(norm: Normalised, span: tuple[int, int] | None) -> str | None:
+def _cut(norm: Normalised, span: tuple[int, int] | None, as_written: bool) -> str | None:
+    """A role's text: as written (``TokenSpans.surface``) or the NP cut."""
     if span is None:
         return None
     try:
-        return norm.spans.cut(*span)
+        return norm.spans.surface(*span) if as_written else norm.spans.cut(*span)
     except ValueError:
         return None
 
 
 __all__ = [
     "ANCHOR_POS",
+    "CLAUSE_FILLS",
+    "CLAUSE_SPAN",
     "COMPOSING_KINDS",
     "FRAME_KINDS",
     "FRAME_OP",

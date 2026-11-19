@@ -56,6 +56,17 @@ RULES: Mapping[str, Rules] = {
         "before the program runs: no keyword applies the quantifier.",
         "offsets that are not integers, or a span that covers no token",
     ),
+    "clause-span": Rules(
+        "the turn's text",
+        "The surface text between two offsets of the normalised turn (a clause slot's boundaries), exactly as it was "
+        "written: from the first covered token's first character to the last one's last, case, spacing and punctuation "
+        'kept, no determiner dropped and no quantifier read ("no one owns it" stays "no one owns it", "the team is '
+        'small" keeps "the"). A clause slot never takes the turn\'s final marks; a mark inside closing quotes or '
+        "brackets is part of the clause ('because \"it is broken.\"' gives '\"it is broken.\"'). The clause filler "
+        "takes at most 200 characters of the NORMALISED turn (a verb as its marked lemma, tokens joined by one space), "
+        "which may be more or fewer as written.",
+        "offsets that are not integers, or a span that covers no token",
+    ),
     "lemma-span": Rules(
         "the normalised turn",
         "The lemma of the one verb the normaliser marked between two offsets (the verb slot's text).",

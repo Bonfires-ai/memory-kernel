@@ -551,3 +551,129 @@ def test_find_entity_passes_through_a_referent_only():
     assert out == [{"uuid": "u2", "name": "Zorvex", "kinds": ["Organisation"]}] and graph.sent == []
     asyncio.run(memory.run("find-entity", {"name": {"uuid": "u2", "name": "Zorvex"}}))
     assert graph.sent  # looked up (as a string), not trusted
+
+
+# -- a final mark is the sentence's or a root literal's, never a slot's -----------------------------------------------
+
+X_NP = {"slot": "x", "fills": "np"}
+Y_NP = {"slot": "y", "fills": "np"}
+HOLD = [["procedure", "?p", "hold"], ["seq", "?p", "1", "?s1"], ["hold", "?s1", "?x"]]
+GROUND = [["procedure", "?p", "ground"], ["seq", "?p", "1", "?s1"], ["ground", "?s1", "?x", "?y"]]
+MARK_TOOLS = default_registry(
+    [ToolSpec.simple("hold", ("about",), False), ToolSpec.simple("ground", ("about", "reason"), False)]
+)
+
+
+def _taught(name: str, draft: str, form: list, meaning: list, written: str) -> CxnSpec:
+    return CxnSpec(
+        id=f"{name}.{draft}.0",
+        kind="taught",
+        unit="root",
+        form=form,
+        meaning=meaning,
+        status="live",
+        provenance={"teacher": "Ana", "chat_id": "c1", "draft_id": draft, "form": written},
+    )
+
+
+SLOW = _taught("slow", "t0000000101", [X_NP, "is too slow"], HOLD, "{X} is too slow")
+SLOW_BECAUSE_OF = _taught(
+    "slow-because-of", "t0000000102", [X_NP, "is too slow because of", Y_NP], GROUND, "{X} is too slow because of {Y}"
+)
+SLOW_BECAUSE = _taught(
+    "slow-because", "t0000000103", [X_NP, "is too slow because", Y_NP], GROUND, "{X} is too slow because {Y}"
+)
+DONE = _taught("done", "t0000000104", [X_NP, "is done."], HOLD, "{X} is done.")
+
+
+def _mark_runtime(engine, tmp_path, *rows: CxnSpec) -> Runtime:
+    store = memory_store(*(rows or (SLOW, SLOW_BECAUSE_OF, SLOW_BECAUSE, DONE)))
+    return _runtime(engine, tmp_path, FakeGraph([], []), [], registry=MARK_TOOLS, store=store, record_standing=False)
+
+
+def _args(plan) -> list[dict]:
+    return [step["args"] for step in plan.tool_steps]
+
+
+@pytest.mark.needs_fcg
+def test_a_final_mark_never_keeps_a_root_from_reading(engine, tmp_path):
+    """K3: a taught root's anchors are its literals, so "{X} is too slow" has nothing to match a final "." or "!".
+    A turn ending in a run of "." / "!" marks that draws no complete root is read once more without them, and reads
+    as the unmarked sentence does; the turn stays as written."""
+    runtime = _mark_runtime(engine, tmp_path)
+    bare = _plan(runtime, "onboarding is too slow")
+    assert bare.status == "needs_tools" and _args(bare) == [{"about": "onboarding"}], bare.diagnostics
+    for text in (
+        "onboarding is too slow.",
+        "onboarding is too slow!",
+        "onboarding is too slow...",
+        "onboarding is too slow!!",
+    ):
+        plan = _plan(runtime, text)
+        assert plan.status == "needs_tools", (text, plan.status, plan.diagnostics)
+        assert plan.reading["root"] == SLOW.id and plan.reading["complete"] and not plan.reading["retried"], text
+        assert _args(plan) == _args(bare), (text, plan.tool_steps)
+        assert plan.frames[0]["roles"] == {"x": "onboarding"}, (text, plan.frames)
+        assert plan.turn["text"] == text and plan.left == [], (text, plan.left)
+
+
+@pytest.mark.needs_fcg
+def test_a_trailing_slot_never_takes_the_final_mark(engine, tmp_path):
+    """K3: "{X} is too slow because of {Y}" ends in a slot, which spanned everything up to the end sentinel, the final
+    mark included (the reason was "docs."). The mark is the sentence's: the reason is "docs"."""
+    runtime = _mark_runtime(engine, tmp_path)
+    for text in ("onboarding is too slow because of the docs.", "onboarding is too slow because of the docs!"):
+        plan = _plan(runtime, text)
+        assert plan.status == "needs_tools", (text, plan.status, plan.diagnostics)
+        assert plan.reading["root"] == SLOW_BECAUSE_OF.id and not plan.reading["retried"], (text, plan.reading)
+        assert _args(plan) == [{"about": "onboarding", "reason": "docs"}], (text, plan.tool_steps)
+        assert plan.frames[0]["roles"] == {"x": "onboarding", "y": "docs"}, (text, plan.frames)
+    # a "?" the speaker wrote stays meaning-bearing (it is never stripped), and a slot never takes it either
+    asked = _plan(runtime, "onboarding is too slow because of the docs?")
+    assert asked.status == "unread" and asked.tool_steps == [] and asked.program == [], (asked.status, asked.tool_steps)
+
+
+@pytest.mark.needs_fcg
+def test_a_slot_never_takes_the_retry_mark_or_a_mark_alone(engine, tmp_path):
+    """K3b: "onboarding is too slow because" (no reason) drew no root, so it was read again with " ?" appended, and
+    the trailing slot took that "?" as the reason; "... because." gave the reason ".". Both are unread: the retry's
+    "?" is accepted only when a root's literal consumes it, and no slot ever holds a final mark."""
+    runtime = _mark_runtime(engine, tmp_path)
+    for text in (
+        "onboarding is too slow because",
+        "onboarding is too slow because.",
+        "onboarding is too slow because!",
+    ):
+        plan = _plan(runtime, text)
+        assert plan.status == "unread", (text, plan.status, plan.tool_steps)
+        assert plan.tool_steps == [] and plan.program == [] and not plan.reading["retried"], (text, plan.reading)
+        roles = [value for frame in plan.frames for value in frame["roles"].values()]
+        assert not any(value in ("?", ".", "!") for value in roles), (text, plan.frames)
+
+
+@pytest.mark.needs_fcg
+def test_a_root_that_writes_its_mark_reads_as_written(engine, tmp_path):
+    """A taught form that writes its own final mark ("{X} is done.") consumes it with its literal: read as written,
+    with no second read."""
+    from memory_kernel.runtime.normalise import normalise
+
+    runtime = _mark_runtime(engine, tmp_path)
+    done = _plan(runtime, "the migration is done.")
+    assert done.status == "needs_tools" and done.reading["root"] == DONE.id, (done.status, done.reading)
+    assert done.reading["normalised"] == normalise("the migration is done.").text and not done.reading["retried"]
+    assert _args(done) == [{"about": "migration"}], done.tool_steps
+
+
+IS = _taught("is", "t0000000105", [X_NP, "is", Y_NP], GROUND, "{X} is {Y}")
+
+
+@pytest.mark.needs_fcg
+def test_no_competing_analysis_shows_a_slot_holding_the_final_mark(engine, tmp_path):
+    """The competing analyses of the turn's own read are readings too: "{X} is {Y}" reads "the migration is done." with
+    "done." as Y, and that analysis never reaches the frames (the frames are the next turn's open frames)."""
+    runtime = _mark_runtime(engine, tmp_path, DONE, IS)
+    done = _plan(runtime, "the migration is done.")
+    assert done.reading["root"] == DONE.id, done.reading
+    assert [frame["construction"] for frame in done.frames] == [DONE.id], done.frames
+    unmarked = _plan(runtime, "the migration is ready")  # no final mark: the competing analyses are as before
+    assert unmarked.reading["root"] == IS.id and unmarked.frames[0]["roles"] == {"x": "migration", "y": "ready"}

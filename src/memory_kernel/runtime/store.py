@@ -21,28 +21,48 @@ Rules a write keeps (``StoreError`` otherwise):
 Standing and order: ``record_uses({id: outcome})`` counts a use (``Standing.uses_ok`` / ``uses_failed`` /
 ``uses_world``; ``world`` never moves ``precedence``) and ``precedence`` reads the first two. ``load_order()`` is the
 base set and the live rows in ascending precedence: the highest loads last and wins the engine's recency tie-break (taught over hand over mined over base). Staged rows are drafts (``runtime/teach``):
-``load_store`` loads them BELOW everything live (then the generated frame parts, ``runtime/frames``, then the live
-order), so a draft never changes what anyone else reads (``admissible``
+``load_store`` loads them BELOW everything live (then the generated frame parts, ``runtime/frames``, and the generated
+fillers, ``generated_fillers``, then the live order), so a draft never changes what anyone else reads (``admissible``
 refuses a reading that applied someone else's draft) and a draft only reads where nothing live does.
+
+The one generated filler is ``CLAUSE_FILLER``, loaded only when a loaded root (a draft, a live row, a card) has a clause
+slot (``{Y:clause}``, ``runtime/teach``): it consumes the slot's whole text and names it as written (``clause-span``),
+up to 200 characters of the NORMALISED turn (its ``.{1,200}``: a verb as its marked lemma, tokens joined by one space;
+as written that may be more or fewer). It holds no words, is never stored and records no standing; a grammar with no
+clause slot loads exactly what it loaded before it existed. A clause filler a store holds itself is a live row, so it
+loads after this one and wins the engine's recency tie-break. A stored row with the generated filler's id is not
+refused (a store that holds one still opens): it loads after the filler and replaces it in the engine, and the load
+logs one warning naming the id.
 """
 
 from __future__ import annotations
 
 import functools
 import json
+import logging
 import threading
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any, Literal
 
 from memory_kernel.runtime.base import base_specs
-from memory_kernel.runtime.constructions import CompileError, CxnSpec, Standing, compile_spec, precedence, spec_id
-from memory_kernel.runtime.frames import frame_parts
+from memory_kernel.runtime.constructions import (
+    CONSUME,
+    CompileError,
+    CxnSpec,
+    Standing,
+    compile_spec,
+    precedence,
+    spec_id,
+)
+from memory_kernel.runtime.frames import CLAUSE_FILLS, CLAUSE_SPAN, frame_parts
 
 if TYPE_CHECKING:
     import pyfcg
 
     from memory_kernel.runtime.engine import RuntimeEngine
+
+log = logging.getLogger("memory_kernel.runtime.store")
 
 #: a turn's outcome for one construction: ``ok`` (answered), ``failed`` (a misreading, an empty result, an unresolved
 #: name, a constraint or store-kind fail: evidence against the construction), ``world`` (the room lacked something:
@@ -247,23 +267,66 @@ def loaded_frame_parts(order: Sequence[CxnSpec]) -> list[CxnSpec]:
     return [part for part in frame_parts(order) if _compiles(part)]
 
 
+#: the clause slot's filler (see the module docstring): generated on load, never stored, never in the base data
+CLAUSE_FILLER = CxnSpec(
+    id="clause",
+    kind="base",
+    unit="filler",
+    fills=CLAUSE_FILLS,
+    form=[CONSUME],
+    meaning=[[CLAUSE_SPAN, "?x", "?l", "?r"]],
+    status="live",
+    provenance={"note": "generated on load when a loaded root has a clause slot: the clause as written"},
+)
+
+
+def generated_fillers(specs: Iterable[CxnSpec]) -> list[CxnSpec]:
+    """The fillers ``load_store`` generates for the specs it loads: ``[CLAUSE_FILLER]`` when a root of ``specs`` has a
+    clause slot, else none."""
+    has_clause_slot = any(
+        spec.unit == "root" and any(isinstance(p, dict) and p.get("fills") == CLAUSE_FILLS for p in spec.form)
+        for spec in specs
+    )
+    return [CLAUSE_FILLER] if has_clause_slot else []
+
+
 def load_store(store: ConstructionStore, engine: RuntimeEngine) -> int:
     """Load the bonfire's grammar into ``engine`` (replacing it): the staged drafts first (ascending precedence), then
-    the frame parts of the live cards and taught phrases (``loaded_frame_parts``), then ``store.load_order()``. Loaded
+    the frame parts of the live cards and taught phrases (``loaded_frame_parts``) and the generated fillers of every
+    root loaded (``generated_fillers``: none for a grammar with no clause slot), then ``store.load_order()``. Loaded
     below every live row, a part never takes a sentence a card or phrase reads completely. Returns the number of specs
     loaded."""
     order = store.load_order()
+    staged = sorted(store.staged(), key=precedence)
     parts = loaded_frame_parts(order)
-    specs = [*sorted(store.staged(), key=precedence), *parts, *order]
+    generated = generated_fillers([*staged, *order])
+    _warn_taken_ids(generated, [*staged, *parts, *order])
+    specs = [*staged, *parts, *generated, *order]
     engine.load([cxn for spec in specs for cxn in compiled(spec)])
     return len(specs)
 
 
+def _warn_taken_ids(generated: Sequence[CxnSpec], loaded: Sequence[CxnSpec]) -> None:
+    """One warning per generated filler whose id a loaded row also holds: the row loads later and replaces the filler
+    in the engine. Nothing is refused or dropped (a store that holds the id still opens and loads); the warning names
+    the id, never the row's form."""
+    taken = {spec.id for spec in loaded}
+    for filler in generated:
+        if filler.id in taken:
+            log.warning(
+                "a loaded construction has the id %r, the generated clause filler's: it replaces that filler in the "
+                "engine, so a clause slot reads only through a clause filler of the store's own",
+                filler.id,
+            )
+
+
 __all__ = [
+    "CLAUSE_FILLER",
     "OUTCOMES",
     "ConstructionStore",
     "Outcome",
     "StoreError",
+    "generated_fillers",
     "load_store",
     "loaded_frame_parts",
 ]

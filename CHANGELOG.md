@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.0.2 (2026-11-19)
+
+- **A one-word filler applies when its word alone is tagged a verb.** A filler's literal is normalised alone, with no
+  sentence around it, where the tagger can read a noun as a verb: a filler for "release" compiled only to the marked
+  `⟪release⟫`, which never matches the plain noun that is the slot's whole text in "release is late", so the filler
+  never applied. Such a filler now also reads its word as written, lowercased, as a one-word part already has a second
+  reading as written. A verb slot holds the lemma, so for a verb filler the word as written helps only when the word is
+  its own lemma ("give", not "gave"). A filler whose word alone is not a verb, a filler of several words, and one with a
+  slot or `CONSUME`/`TOKEN` compile as before; no base construction changes.
+- **For callers: such a filler compiles to two constructions.** They are `<id>#v0` (the marked reading) and `<id>#v1`
+  (the plain word), with one meaning and one precedence. Load `CompiledCxn.cxns` (`CompiledCxn.cxn` raises when a spec
+  has alternates), and map an applied construction name back to its spec with `spec_id`.
+- **A slot never takes a sentence's final mark.** A turn ending in `.`, `!`, `...` or `!!` that no root reads as written
+  is read again without the mark, so "take JUJ-3." gives the ticket `JUJ-3`, not `JUJ-3.`, and a marked turn reaches a
+  taught root or a card where it used to fall through. `turn.text` stays as written; `reading["normalised"]`, the
+  spans and the slot values are those of the text without the mark. The base reply rows for a single mark still win
+  as written. Analyses whose slot would hold the final mark no longer appear in `frames`.
+- **For callers: a question mark the speaker wrote is never stripped and never fills a slot.** A turn whose only
+  reading puts a written `?` in a slot is now `unread` with no frames: "take JUJ-3?" no longer runs `take("JUJ-3?")`,
+  and a taught `search {Q}` no longer reads "search why is the sky blue?". A form that should take such a turn writes
+  the mark itself (`search {Q}?`). This holds for a question mark in any script, and for doubled or mixed marks
+  ("report??", `?!`).
+- **A turn retried with an appended `?` is refused when the mark would only fill a slot.** A bare verb with a card
+  ending in a slot ("take", "write") used to plan the tool with the argument `"?"`. It is now unread with the verb's
+  frame open, runs nothing, and is never composed into an open frame of the turn before. The retry still reads a
+  question typed without its `?`.
+- **A clause slot keeps a clause as written.** A taught form or a card's `x-forms` may write `{Y:clause}` (and
+  `{Y:np}`, the default spelled out). The tool argument and the frame role of a clause slot are the clause as the
+  speaker wrote it, determiners and quantifiers included, without the sentence's final mark, so "… because the team
+  is small" gives `the team is small` and a quantified clause is not a repair. Any other `{Y:kind}` is a teach problem
+  that names the unknown kind. The value op is the new keyword `clause-span`, listed by `mk keywords` and in
+  `docs/keywords.md`.
+- **The clause filler is generated at load, only for a grammar with a clause slot.** A grammar without one loads the
+  same constructions as before. `plan.hand` lists no row for the generated filler. A store's own clause filler loads
+  after it and still reads; the frame role then carries that filler's text.
+- **Before upgrading a bonfire:** a stored, hand-loaded or mined root that already has a clause slot never completed
+  before and now does. Count the `TaughtPhrase` rows whose `spec_json` contains `"fills": "clause"`; a stored row
+  whose id is `clause` is warned about at load.
+
 ## 2.0.1 (2026-11-07)
 
 - **A paid Jev call no longer stops the build when the provider adds fields to `usage`.** The archive reader required

@@ -12,7 +12,9 @@ from memory_kernel.runtime.constructions import (
     Standing,
     compile_spec,
     precedence,
+    spec_id,
 )
+from memory_kernel.runtime.store import compiled
 
 PORT = 9713  # 9711 is the runtime default, 9728 the engine tests'
 
@@ -217,6 +219,86 @@ def test_spec_json_round_trip():
     assert row["standing"] == {"confirmed": 1, "uses_ok": 4, "uses_failed": 1, "uses_world": 0}
     with pytest.raises(CompileError, match="kind"):
         CxnSpec.from_json({**row, "kind": "guessed"})
+
+
+def test_one_word_filler_also_reads_the_word_as_written():
+    """A filler's literal is normalised alone, where the tagger may read a noun as a verb: "release" alone is the marked
+    "⟪release⟫" (on the small and the transformer parser alike), but in "release is late" the slot's whole span is the
+    plain noun, which the marked form never matches. So a one-word filler whose bare reading is a marked verb also reads
+    the word as written, lowercased: two alternates of one spec, with one meaning and one precedence."""
+    spec = CxnSpec(
+        id="t.release",
+        kind="mined",
+        unit="filler",
+        fills="np",
+        status="live",
+        form=["release"],
+        meaning=[["name-span", "?x", "?l", "?r"]],
+    )
+    patterns = [json.dumps(c.conditional_pole, ensure_ascii=False) for c in compiled(spec)]
+    assert any("⟪release⟫" in p for p in patterns)  # the bare reading, kept
+    assert any('\\"release\\"' in p for p in patterns)  # the word as written, added
+    cxns = compiled(spec)
+    assert [c.name for c in cxns] == ["t.release#v0", "t.release#v1"]
+    assert {spec_id(c.name) for c in cxns} == {"t.release"}
+    assert [c.conditional_pole[0][2]["#form"] for c in cxns] == [
+        [_seq("⟪release⟫", "?l", "?r")],
+        [_seq("release", "?l", "?r")],
+    ]
+    assert cxns[0].conditional_pole[0][1] == cxns[1].conditional_pole[0][1]  # one meaning
+    capital = compiled(CxnSpec.from_json({**spec.to_json(), "form": ["Release"]}))
+    assert [c.name for c in capital] == ["t.release#v0", "t.release#v1"]
+    assert capital[1].conditional_pole[0][2]["#form"] == [_seq("release", "?l", "?r")]  # as written, lowercased
+
+
+def test_one_word_verb_filler_also_reads_the_word_as_written():
+    """A verb slot holds the lemma between the marks, never the marks, so a one-word verb filler's plain alternate is
+    the reading that can fill it: "give" alone is "⟪give⟫", and "give" as written. The word is its own lemma here; one
+    that is not ("gave" alone is "⟪give⟫") gains an alternate a verb slot never holds."""
+    spec = CxnSpec(
+        id="t.give",
+        kind="mined",
+        unit="filler",
+        fills="verb",
+        status="live",
+        form=["give"],
+        meaning=[["lemma-span", "?x", "?l", "?r"]],
+    )
+    cxns = compiled(spec)
+    assert cxns[0].conditional_pole[0][2]["#form"] == [_seq("⟪give⟫", "?l", "?r")]  # precondition: a verb alone
+    assert [c.name for c in cxns] == ["t.give#v0", "t.give#v1"]
+    assert cxns[1].conditional_pole[0][2]["#form"] == [_seq("give", "?l", "?r")]  # the word as written, added
+    assert {c.conditional_pole[0][2]["slot"] for c in cxns} == {"verb"}
+
+
+def test_one_word_filler_that_is_no_verb_alone_compiles_once():
+    """No alternate when the bare reading is not a marked verb: "ethereum" alone stays "ethereum"."""
+    [cxn] = compiled(_filler("t.ethereum", ["ethereum"], [["name-span", "?x", "?l", "?r"]]))
+    assert cxn.name == "t.ethereum" and cxn.conditional_pole[0][2]["#form"] == [_seq("ethereum", "?l", "?r")]
+
+
+def test_base_roots_and_fillers_have_no_alternates():
+    """No shipped one-word filler ("I", "everyone", "yesterday") is a marked verb alone, so every base root and filler
+    compiles to the one construction it did."""
+    from memory_kernel.runtime.base import base_specs
+
+    specs = {s.id: s for s in base_specs()}
+    for spec in specs.values():
+        if spec.unit in ("root", "filler"):
+            assert [c.name for c in compile_spec(spec).cxns] == [spec.id], spec.id
+    assert compile_spec(specs["np-everyone"]).cxn.conditional_pole[0][2]["#form"] == [_seq("everyone", "?l", "?r")]
+    assert compile_spec(specs["np-i"]).cxn.conditional_pole[0][2]["#form"] == [_seq("i", "?l", "?r")]
+
+
+def test_filler_of_more_than_one_bare_word_gains_no_alternate():
+    """Only a filler of ONE word reads it as written: a multi-word literal ("swap fees" alone is "⟪swap⟫ fees") and a
+    literal with the consuming pattern compile to their bare reading only."""
+    for id_, form, pattern in (
+        ("t.swap-fees", ["swap fees"], "⟪swap⟫ fees"),
+        ("t.release-of", ["release", CONSUME], "⟪release⟫ .{1,200}"),
+    ):
+        [cxn] = compiled(_filler(id_, form, [["name-span", "?x", "?l", "?r"]]))
+        assert cxn.name == id_ and cxn.conditional_pole[0][2]["#form"] == [_seq(pattern, "?l", "?r")]
 
 
 def _data_dir():

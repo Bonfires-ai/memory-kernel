@@ -31,8 +31,8 @@ root construction, ``ANALYSES`` in all; an analysis through a draft not usable h
 text the primary analysis left unconsumed, as written. When the competing analyses cannot be read (the engine refused
 or failed the n-best request), the primary's plan stands on its own frames and ``reading["alternatives"]`` says why.
 A partial reading (a frame part read "make" in "make onboard josh") is unread with its frames: the kernel never runs
-it. A reply root ("yes", "no", either with a final "." or "!") is unread with its reply frame: it answers the turn
-before, and nothing runs.
+it. A reply root ("yes", "no", either with a final "." or "!", or any run of them) is unread with its reply frame: it
+answers the turn before, and nothing runs.
 
 ``plan(..., context=[Frame])`` names the open frames of the turn before (at most ``frames.MAX_CONTEXT``; the caller
 sends only frames whose effect has not run): a turn that reads as a bare fragment (nothing complete, and no frame of its
@@ -47,7 +47,8 @@ frame's name carry ``composed_with`` (that name; any other analysis of the rende
 is ``{"with": <name>, "text": <the rendering>}``, and ``reading["ms"]`` (the trace's ``comprehension_ms``) is the wall
 ms of every read the plan took: the turn's own and each rendering's. A turn with a frame of its own ("make onboard
 josh", "yes please take it") is never composed: binding stays conservative, the whole message never fills an open slot;
-nor is a complete turn; a composition the engine fails leaves the turn's own reading, and ``reading["composed"]`` says
+nor is a complete turn, nor one whose own reading was refused because a slot took its final mark ("take JUJ-3?": a
+root of its own read it); a composition the engine fails leaves the turn's own reading, and ``reading["composed"]`` says
 why.
 
 A reference to a taught construction (``invoke``, stored by teaching) is expanded first into that construction's live
@@ -58,8 +59,20 @@ applied. A reference that cannot expand (the construction is no longer live, a c
 is tool-bearing (ruling R4): its repair's licence is that of what did expand, ``[]`` when none of it names a tool,
 never ``None``.
 
-A turn with no final punctuation mark (its last token is not POS ``PUNCT``) that draws no root is read again ONCE
-with " ?" appended. Each turn gets ONE ``StoreMemory`` (its queries are the trace's ``queries``) composed with the
+A final mark belongs to the turn's sentence or to a root's literal, never to a slot: a reading of the turn in which a
+slot reaches into its final marks (its trailing POS ``PUNCT`` tokens, a closing quote or bracket excepted) is never
+used, and no competing analysis whose slot does reaches its frames. A turn with no final mark (its last token is not
+POS ``PUNCT``) that draws no root is read again ONCE with " ?" appended, and that reading is used only when a root's
+literal consumes the "?" ("onboarding is too slow because" never gives the reason "?"; "take" alone is unread with
+its frame part open, never take(ticket="?")). A turn whose final marks hold no question mark ("." / "!" / "..." /
+"!!"), refused so or drawing no complete root, is read again ONCE without them, never retried, and that reading is
+used when it is complete and no slot of it takes a mark ("onboarding is too slow." reads as "onboarding is too slow"
+does, "... because of the docs." gives the reason "docs", "yes!!" is the reply "yes"): its spans are that text's
+(``reading["normalised"]`` shows it) and ``turn.text`` stays as written. A question mark the speaker wrote ("?", the
+full-width one, the emoji, any whose Unicode name says so: ``_question_mark``) is never stripped, so a slot never takes
+it either: questions are roots ending in "?". A mark inside closing quotes or brackets is the quoted text's ('take
+"JUJ-3?"' reads with the ticket '"JUJ-3?"'). Each turn gets ONE
+``StoreMemory`` (its queries are the trace's ``queries``) composed with the
 lexicon ops. The applied constructions' standing records the turn's outcome once (``store.record_uses``) when the
 turn ends: answered = ``ok``; a repair the room caused (a verdict ``precondition_failed``, ``declined`` or
 ``tool_error``) = ``world``, which moves ``uses_world`` only and never precedence; any other repair (a misreading, an
@@ -105,6 +118,7 @@ import logging
 import re
 import threading
 import time
+import unicodedata
 import uuid
 import weakref
 from collections import OrderedDict
@@ -181,7 +195,7 @@ FINAL_MARK_POS = "PUNCT"
 #: the spaCy morph ``PunctType`` of a mark that is half of a pair (a quote, a bracket): a closing one is not a final
 #: mark, it stays with its opener
 PAIRED_MARK_TYPES = frozenset({"Quot", "Brck"})
-#: appended to a turn with no final mark that drew no root
+#: appended to a turn with no final mark that drew no root (used only when a root's literal consumes it)
 RETRY_MARK = " ?"
 #: answer shapes (labels of the contract, as the base rows write them) whose empty answer is still an answer: a polar
 #: question's empty evidence is "no"
@@ -210,6 +224,9 @@ class _Reads(NamedTuple):
     retried: bool
     #: why the competing analyses were not read (None when they were, or were not asked for)
     alternatives: str | None
+    #: the turn's own reading was refused (a slot took a final mark) and nothing replaced it: a root of its own read
+    #: the turn, so it is never composed into an open frame
+    refused: bool = False
 
 
 class UnknownPlan(LookupError):
@@ -534,7 +551,7 @@ class Runtime:
 
         # a composed reading is the plan's reading: its spans are the rendered text's (the gate, the program and a
         # resume cut from them); the turn had no frame of its own (``_comprehend`` composes only a bare fragment)
-        norm, reading, readings, ms, retried, alternatives = composed if composed is not None else own
+        norm, reading, readings, ms, retried, alternatives, _ = composed if composed is not None else own
         specs = self._all_specs()
         root = _root(reading, specs)
         # what read which words, on every path: an analysis through a draft not usable here affords nothing
@@ -629,14 +646,15 @@ class Runtime:
         ``frames_of`` its usable analyses is empty), given ``context``, is read again as each text
         ``frames.compositions`` renders (no retry mark), in order, until one reads completely, through a root of the
         open frame it was rendered from and nothing unusable here; a turn with a frame of its own is never put into an
-        open frame's slot (C11: the fragment fills the slot, never a message with its own verb). Returns the turn's
+        open frame's slot (C11: the fragment fills the slot, never a message with its own verb), nor one whose own
+        reading was refused for a slot holding its final mark (``_Reads.refused``: a root read it). Returns the turn's
         own reads, the composed reads (None when nothing composed), what goes into ``reading["composed"]``:
         ``{"with", "text"}``, or ``{"error"}`` when the engine failed a composition (the turn's own reading then
         stands), or None; and the wall ms of every read when a rendering was read (the turn's own, each rendering's,
         the failed ones too), else None."""
         with self._grammar:
             own = self._read(turn.text)
-            if not context or (own.reading is not None and own.reading.complete):
+            if not context or own.refused or (own.reading is not None and own.reading.complete):
                 return own, None, None, None
             specs = self._all_specs()
             if frames_of(self._usable(own.readings, turn), own.norm, {**specs, **self._frame_parts()}, self.registry):
@@ -696,24 +714,22 @@ class Runtime:
         return [r for r in readings if admissible(r, self.store, turn.chat_id, turn.speaker or "")]
 
     def _read(self, text: str, *, retry_mark: bool = True) -> _Reads:
-        """Normalise and comprehend ``text``; with ``retry_mark``, a text with no final mark that draws no root is read once
-        more with ``RETRY_MARK`` appended (that reading is used when it draws a root). Returns the text read, the
-        primary reading, the analyses its frames come from (the primary first; a complete primary adds the competing
-        analyses ``comprehend_all`` finds on the same text, one per other root, up to ``ANALYSES`` in all; a partial
-        primary has none), the wall ms, whether it retried, and why the competing analyses were not read (None when
-        they were, or were not asked for). The n-best never costs the primary its plan: when ``comprehend_all``
-        fails, the primary reading stands alone."""
+        """Normalise and comprehend ``text``; with ``retry_mark`` (the turn's own read) the reading is the turn's
+        (``_turn_reading``: a final mark is the sentence's or a root literal's, never a slot's). Returns the text read,
+        the primary reading, the analyses its frames come from (the primary first; a complete primary adds the
+        competing analyses ``comprehend_all`` finds on the same text, one per other root, up to ``ANALYSES`` in all,
+        on the turn's own read none whose slot takes a final mark; a partial primary has none), the wall ms (every
+        read included), whether the reading used came from the ``RETRY_MARK`` retry, and why the competing analyses
+        were not read (None when they were, or were not asked for). The n-best never costs the primary its plan: when
+        ``comprehend_all`` fails, the primary reading stands alone."""
         with self._grammar:
             started = time.perf_counter()
             norm = normalise(text)
             reading = self.engine.comprehend(norm.text)
-            retried = False
+            retried = refused = False
             specs = self._all_specs()
-            if retry_mark and _root(reading, specs) is None and not _final_mark(norm):
-                again = normalise(text + RETRY_MARK)
-                retry = self.engine.comprehend(again.text)
-                if _root(retry, specs) is not None:
-                    norm, reading, retried = again, retry, True
+            if retry_mark:
+                norm, reading, retried, refused = self._turn_reading(text, norm, reading, specs)
             readings = [reading] if reading is not None else []
             unread: str | None = None
             if reading is not None and reading.complete:
@@ -722,8 +738,51 @@ class Runtime:
                     others = self.engine.comprehend_all(norm.text, ANALYSES)
                 except RuntimeEngineError as exc:
                     others, unread = [], f"runtime engine: {exc}"
+                if retry_mark:  # the turn's own read: no analysis whose slot takes a final mark
+                    marks = _final_marks(norm)
+                    others = [r for r in others if not _takes_mark(r, norm, marks)]
                 readings += [r for r in others if _root(r, specs) is not primary][: ANALYSES - 1]
-            return _Reads(norm, reading, readings, (time.perf_counter() - started) * 1000, retried, unread)
+            ms = (time.perf_counter() - started) * 1000
+            return _Reads(norm, reading, readings, ms, retried, unread, refused)
+
+    def _turn_reading(
+        self, text: str, norm: Normalised, reading: Reading | None, specs: Mapping[str, CxnSpec]
+    ) -> tuple[Normalised, Reading | None, bool, bool]:
+        """The turn's own reading of ``text``, from its as-written ``norm`` and ``reading``: the text read, the
+        reading (None when none is accepted), whether it came from the retry, and whether the as-written reading was
+        refused with nothing to replace it. A final mark belongs to the sentence or to a root's literal, never to a
+        slot:
+
+        * a reading in which a slot reaches into the turn's final marks (``_takes_mark``) is never accepted;
+        * a turn with no final mark (its last token is not POS ``FINAL_MARK_POS``) that draws no root is read once
+          more with ``RETRY_MARK`` appended; that reading is used when it draws a root and no slot of it takes the
+          appended "?" (a root's literal consumes it), else the as-written one stands;
+        * a turn whose final marks hold no question mark (``_asks``), whose as-written reading is refused or draws no
+          complete root, is read once more as ``_without_final_mark`` gives it (never retried: the speaker wrote a
+          mark, and not a question mark); that reading is used when it is complete, draws a root and itself takes no
+          final mark (its spans are its text's, ``turn.text`` stays as written). Otherwise the as-written reading
+          stands, or none when it was refused (the turn is unread with no frames, and never composed: a root of its own
+          read it).
+
+        A question mark the speaker wrote ("?", the full-width one, the emoji: ``_question_mark``) is never stripped:
+        questions are roots that end in "?"."""
+        if not _final_mark(norm):  # no final marks: no slot can take one, so the as-written reading is never refused
+            if _root(reading, specs) is None:
+                again = normalise(text + RETRY_MARK)
+                retry = self.engine.comprehend(again.text)
+                if _root(retry, specs) is not None and not _takes_mark(retry, again, _final_marks(again)):
+                    return again, retry, True, False
+            return norm, reading, False, False
+        marks = _final_marks(norm)
+        refused = _takes_mark(reading, norm, marks)
+        if refused or not _complete_root(reading, specs):
+            stripped = _without_final_mark(norm) if marks and not _asks(norm, marks) else ""
+            if stripped:
+                bare = normalise(stripped)
+                again = self.engine.comprehend(bare.text)
+                if _complete_root(again, specs) and not _takes_mark(again, bare, _final_marks(bare)):
+                    return bare, again, False, False
+        return norm, None if refused else reading, False, refused
 
     def _gate(
         self, reading: Reading, norm: Normalised, specs: Mapping[str, CxnSpec], root: CxnSpec
@@ -1135,21 +1194,66 @@ def _final_mark(norm: Normalised) -> bool:
     return bool(pos) and pos[-1] == FINAL_MARK_POS
 
 
-def _without_final_mark(norm: Normalised) -> str:
-    """The text ``norm`` was read from, without its final marks (its trailing tokens of POS ``FINAL_MARK_POS``, a
-    retry mark included), as written. A closing quote or bracket (morph ``PunctType`` in ``PAIRED_MARK_TYPES``) is no
-    final mark: it stays with its opener ('"JUJ-3".' is '"JUJ-3"'). '' when nothing but marks is in it: a turn of
-    marks alone fills no slot ("?" is no ticket)."""
+def _final_marks(norm: Normalised) -> range:
+    """The indices of ``norm``'s final marks, the tokens ``_without_final_mark`` drops: its trailing tokens of POS
+    ``FINAL_MARK_POS`` (a retry mark included), up to a closing quote or bracket (``_paired_mark``), which stays with
+    its opener; every token when nothing but marks is in it; none when its tokens carry no POS."""
     spans = norm.spans
     count = len(spans.tokens)
-    if not count or len(spans.pos) < count:  # no POS to tell a mark by: the text as written
-        return spans.original.strip()
+    if not count or len(spans.pos) < count:
+        return range(count, count)
     if all(pos == FINAL_MARK_POS for pos in spans.pos[:count]):
-        return ""
-    end = count
-    while spans.pos[end - 1] == FINAL_MARK_POS and not _paired_mark(spans, end - 1):
-        end -= 1
-    return spans.original[: spans.tokens[end - 1][3]].strip()
+        return range(count)
+    start = count
+    while spans.pos[start - 1] == FINAL_MARK_POS and not _paired_mark(spans, start - 1):
+        start -= 1
+    return range(start, count)
+
+
+def _without_final_mark(norm: Normalised) -> str:
+    """The text ``norm`` was read from, without its final marks (``_final_marks``: its trailing tokens of POS
+    ``FINAL_MARK_POS``, a retry mark included), as written. A closing quote or bracket (morph ``PunctType`` in
+    ``PAIRED_MARK_TYPES``) is no final mark: it stays with its opener ('"JUJ-3".' is '"JUJ-3"'). '' when nothing but
+    marks is in it: a turn of marks alone fills no slot ("?" is no ticket)."""
+    spans = norm.spans
+    if not spans.tokens or len(spans.pos) < len(spans.tokens):  # no POS to tell a mark by: the text as written
+        return spans.original.strip()
+    start = _final_marks(norm).start
+    return spans.original[: spans.tokens[start - 1][3]].strip() if start else ""
+
+
+def _takes_mark(reading: Reading | None, norm: Normalised, marks: range) -> bool:
+    """Whether a slot of ``reading`` reaches into ``marks``, ``norm``'s final marks (``_final_marks``): a slot unit's
+    normalised boundaries (``Reading.slots``, every slot of the analysis, a filler's own and an unfilled one included)
+    overlap the span from the first final mark's start to the last one's end."""
+    if reading is None or not marks:
+        return False
+    first, last = norm.spans.tokens[marks.start][0], norm.spans.tokens[marks[-1]][1]
+    return any(left < last and right > first for _holder, _slot, left, right in reading.slots)
+
+
+def _asks(norm: Normalised, marks: range) -> bool:
+    """Whether the final marks ``marks`` of ``norm`` hold a question mark as written (``_question_mark``)."""
+    spans = norm.spans
+    return any(_question_mark(ch) for i in marks for ch in spans.original[spans.tokens[i][2] : spans.tokens[i][3]])
+
+
+def _question_mark(ch: str) -> bool:
+    """A question mark in any script: a punctuation or symbol character (category ``P*`` or ``So``) whose Unicode
+    name holds QUESTION and MARK, or INTERROBANG: "?", FULLWIDTH QUESTION MARK (U+FF1F), the emoji BLACK and WHITE
+    QUESTION MARK ORNAMENT (U+2753, U+2754), INVERTED QUESTION MARK (U+00BF), ARABIC QUESTION MARK (U+061F), DOUBLE
+    QUESTION MARK (U+2047), QUESTION EXCLAMATION MARK (U+2048), EXCLAMATION QUESTION MARK (U+2049), INTERROBANG
+    (U+203D), and the like. A math relation with a question mark above it (``Sm``) and the invisible TAG QUESTION MARK
+    (``Cf``) are not marks the speaker wrote."""
+    name = unicodedata.name(ch, "")
+    marked = ("QUESTION" in name and "MARK" in name) or "INTERROBANG" in name
+    category = unicodedata.category(ch)
+    return marked and (category.startswith("P") or category == "So")
+
+
+def _complete_root(reading: Reading | None, specs: Mapping[str, CxnSpec]) -> bool:
+    """A complete reading that draws a root."""
+    return reading is not None and reading.complete and _root(reading, specs) is not None
 
 
 def _paired_mark(spans: TokenSpans, index: int) -> bool:

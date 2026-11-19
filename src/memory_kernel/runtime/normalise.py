@@ -32,7 +32,9 @@ written and every other token of the span is a proper noun (POS ``PROPN``: "The 
 determiner's meaning is the filler's (``definite``, ``indefinite``), never part of the name. A dropped determiner that
 is a quantifier (morph ``PronType=Tot``, or no ``PronType`` at all: neither an article nor a demonstrative; the
 pinned English model writes no PronType for "every", "all", "each", "no") marks the cut ``quantified``: a constraint
-no keyword applies yet, which the caller must not answer as unconstrained. ``marked_lemma`` reads a marked verb's lemma back out of the
+no keyword applies yet, which the caller must not answer as unconstrained. ``surface(left, right)`` is the cut of a
+clause slot (the executor's ``clause-span``): the same original surface with nothing dropped and nothing read ("no one
+owns it", "the team is small"). ``marked_lemma`` reads a marked verb's lemma back out of the
 normalised text (the executor's ``lemma-span``): the normaliser is the only lemmatiser.
 """
 
@@ -90,6 +92,24 @@ class TokenSpans:
         """The original surface of the tokens covering normalised offsets ``[left, right)``, leading determiners
         dropped (see the module docstring), and whether a dropped one quantifies. ``ValueError`` for an empty or
         out-of-range span, or one that covers no token (only the single spaces between tokens)."""
+        covered = self._covered(left, right)
+        head = next((n for n, i in enumerate(covered) if self._pos(i) != DETERMINER_POS), 0)
+        dropped, rest = covered[:head], covered[head:]
+        if dropped and self._names_a_proper_noun(dropped[0], rest):
+            dropped, rest = [], covered
+        quantified = any(self._quantifies(i) for i in dropped)
+        return NPCut(self.original[self.tokens[rest[0]][2] : self.tokens[rest[-1]][3]], quantified)
+
+    def surface(self, left: int, right: int) -> str:
+        """The original surface of the tokens covering normalised offsets ``[left, right)``, as written: from the
+        first such token's first character to the last one's last, nothing dropped and nothing read (a clause slot's
+        cut, ``clause-span``). ``ValueError`` as for ``np``."""
+        covered = self._covered(left, right)
+        return self.original[self.tokens[covered[0]][2] : self.tokens[covered[-1]][3]]
+
+    def _covered(self, left: int, right: int) -> list[int]:
+        """The indices of the tokens overlapping ``[left, right)``; ``ValueError`` for an empty or out-of-range span,
+        or one that covers no token."""
         if not (0 <= left < right <= self.normalised_length):
             raise ValueError(
                 f"span [{left}, {right}) is empty or outside the normalised text (0..{self.normalised_length})"
@@ -97,12 +117,7 @@ class TokenSpans:
         covered = [i for i, t in enumerate(self.tokens) if t[0] < right and t[1] > left]
         if not covered:
             raise ValueError(f"span [{left}, {right}) covers no token")
-        head = next((n for n, i in enumerate(covered) if self._pos(i) != DETERMINER_POS), 0)
-        dropped, rest = covered[:head], covered[head:]
-        if dropped and self._names_a_proper_noun(dropped[0], rest):
-            dropped, rest = [], covered
-        quantified = any(self._quantifies(i) for i in dropped)
-        return NPCut(self.original[self.tokens[rest[0]][2] : self.tokens[rest[-1]][3]], quantified)
+        return covered
 
     def _names_a_proper_noun(self, determiner: int, rest: list[int]) -> bool:
         """A determiner capitalised as written, before nothing but proper nouns ("The Brask Group")."""

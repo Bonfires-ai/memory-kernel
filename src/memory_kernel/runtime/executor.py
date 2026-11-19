@@ -67,6 +67,8 @@ VALUE_SPECS: Mapping[str, OpSpec] = {
     spec.name: spec
     for spec in (
         OpSpec("name-span", ("left", "right"), ("text",), "value"),
+        # a clause slot's text as written (its filler is generated on load: ``store.CLAUSE_FILLER``)
+        OpSpec("clause-span", ("left", "right"), ("text",), "value"),
         OpSpec("lemma-span", ("left", "right"), ("lemma",), "value"),
         OpSpec("within", ("events", "interval"), ("events",), "value"),
         OpSpec("const", ("value",), ("constant",), "value"),
@@ -101,6 +103,11 @@ class SpanText(Protocol):
     def np(self, left: int, right: int) -> NPCut:
         """The NP cut and whether a quantifying determiner was dropped from its head (``NPCut.quantified``: a
         constraint no keyword applies, which an answer must not ignore)."""
+        ...
+
+    def surface(self, left: int, right: int) -> str:
+        """The original surface text for normalised offsets ``[left, right)`` as written, nothing dropped (a clause
+        slot's cut: ``clause-span``)."""
         ...
 
 
@@ -593,6 +600,11 @@ class _Run:
             if not isinstance(left, int) or not isinstance(right, int):
                 raise ValueError(f"name-span offsets must be integers, got {left!r}, {right!r}")
             return self.spans.cut(left, right)
+        if name == "clause-span":
+            left, right = args["left"], args["right"]
+            if not isinstance(left, int) or not isinstance(right, int):
+                raise ValueError(f"clause-span offsets must be integers, got {left!r}, {right!r}")
+            return self.spans.surface(left, right)
         if name == "lemma-span":
             left, right = args["left"], args["right"]
             if not isinstance(left, int) or not isinstance(right, int):

@@ -385,6 +385,19 @@ def test_reply_roots(engine, tmp_path):
 
 
 @pytest.mark.needs_fcg
+def test_a_reply_under_any_run_of_marks(engine, tmp_path):
+    """K3: the base data has one reply row per single mark; "yes!!" and "Yes..." read through none of them, so they
+    are read once more without their final marks, and come back as the bare reply."""
+    runtime = _runtime(engine, tmp_path)
+    for text, word in (("yes!!", "yes"), ("Yes...", "yes"), ("no!!", "no"), ("No...", "no")):
+        plan = _plan(runtime, text)
+        assert plan.status == "unread" and plan.program == [] and plan.licence is None, (text, plan.diagnostics)
+        assert plan.reading["root"] == f"reply.{word}" and not plan.reading["retried"], (text, plan.reading)
+        assert plan.frames == [_frame(word, "reply", f"reply.{word}", {}, True)], (text, plan.frames)
+        assert plan.turn["text"] == text
+
+
+@pytest.mark.needs_fcg
 def test_no_catch_all(engine, tmp_path):
     plan = _plan(_runtime(engine, tmp_path), "lovely weather")
     assert plan.status == "unread" and plan.frames == [] and plan.diagnostics == ["no construction read the turn"]
@@ -660,6 +673,87 @@ def test_marks_alone_never_compose(engine, tmp_path):
         plan = _plan(runtime, text, [frame])
         assert plan.status == "unread" and "composed" not in plan.reading, (text, plan.reading)
         assert plan.frames == [], (text, plan.frames)
+
+
+@pytest.mark.needs_fcg
+def test_a_turn_refused_for_its_mark_never_composes(engine, tmp_path):
+    """K3: "take JUJ-3?" reads through the take card with the ticket "JUJ-3?": a slot holding the turn's final mark,
+    so that reading is refused (a "?" is never stripped, and the turn is unread). It was still read by a root of its
+    own, so it is never put into an open frame's slot (C11): never give(ticket="take JUJ-3")."""
+    runtime = _runtime(engine, tmp_path)
+    alone = _plan(runtime, "take JUJ-3?")
+    assert alone.status == "unread" and alone.tool_steps == [] and alone.frames == [], (alone.status, alone.frames)
+    plan = _plan(runtime, "take JUJ-3?", [_open("give", "tool", {"ticket": None, "person": "Milo"})])
+    assert plan.status == "unread" and "composed" not in plan.reading, plan.reading
+    assert plan.tool_steps == [] and plan.frames == [], (plan.tool_steps, plan.frames)
+
+
+def test_a_question_mark_in_any_script_is_a_question():
+    """A question mark is any punctuation or symbol character whose Unicode name says QUESTION ... MARK or INTERROBANG:
+    the full-width one, the emoji, the inverted, Arabic and small ones too. A math relation with a question mark above
+    it, a semicolon, an ellipsis or "!" is not one."""
+    from memory_kernel.runtime.api import _asks, _final_marks, _question_mark
+    from memory_kernel.runtime.normalise import normalise
+
+    for ch in "?¿;؟‽⁇⁈⁉❓❔⸘⸮﹖？":
+        assert _question_mark(ch), f"U+{ord(ch):04X}"
+    for ch in ".!;:…¡⩻≟\U000e003f":
+        assert not _question_mark(ch), f"U+{ord(ch):04X}"
+    for text, asks in (
+        ("take JUJ-3?", True),
+        ("take JUJ-3？", True),  # FULLWIDTH QUESTION MARK
+        ("take JUJ-3❓", True),  # BLACK QUESTION MARK ORNAMENT, the emoji
+        ("take JUJ-3?!", True),
+        ("take JUJ-3!?", True),
+        ("take JUJ-3.", False),
+        ("take JUJ-3!!", False),
+        ("take JUJ-3...", False),
+    ):
+        norm = normalise(text)
+        marks = _final_marks(norm)
+        assert marks and _asks(norm, marks) is asks, (text, marks)
+
+
+@pytest.mark.needs_fcg
+def test_a_question_mark_in_any_script_is_never_stripped(engine, tmp_path):
+    """A turn whose final marks hold a question mark, the full-width one, the emoji or one in a mixed run ("?!", "!?"),
+    is never read without them: the take card's slot would hold the mark, so that reading is refused, and the turn is
+    unread. A question never runs a command."""
+    runtime = _runtime(engine, tmp_path)
+    for text in ("take JUJ-3？", "take JUJ-3❓", "take JUJ-3?!", "take JUJ-3!?"):
+        plan = _plan(runtime, text)
+        assert plan.status == "unread" and plan.tool_steps == [] and plan.program == [], (text, plan.tool_steps)
+        assert plan.frames == [] and not plan.reading["retried"], (text, plan.frames)
+
+
+@pytest.mark.needs_fcg
+def test_a_mark_inside_closing_quotes_is_the_quoted_texts(engine, tmp_path):
+    """A closing quote is no final mark: a mark inside it belongs to the quoted text, and the slot keeps it (a quoted
+    question reads, too); a mark after it is the sentence's, and the slot never takes it."""
+    runtime = _runtime(engine, tmp_path)
+    for text, roles in (
+        ('take "JUJ-3."', {"ticket": '"JUJ-3."'}),
+        ('take "JUJ-3?"', {"ticket": '"JUJ-3?"'}),
+        ('take "JUJ-3".', {"ticket": '"JUJ-3"'}),
+        ('write "did you see the release?"', {"body": '"did you see the release?"'}),
+    ):
+        plan = _plan(runtime, text)
+        assert plan.status == "needs_tools", (text, plan.status, plan.diagnostics)
+        assert [s["args"] for s in plan.tool_steps] == [roles] and plan.frames[0]["roles"] == roles, (text, plan.frames)
+
+
+@pytest.mark.needs_fcg
+def test_a_bare_verb_is_its_open_frame_never_a_question(engine, tmp_path):
+    """K3b in its commonest form: "take" alone drew no root, so it was read again as "take ?", and the take card's slot
+    took the "?" (take(ticket="?")). A retry whose "?" only feeds a slot is dropped: the turn is unread with the verb's
+    frame part open, runs nothing, and (a frame of its own) is never composed into an open frame."""
+    runtime = _runtime(engine, tmp_path)
+    for text, role in (("take", "ticket"), ("write", "body")):
+        plan = _plan(runtime, text)
+        assert plan.status == "unread" and plan.tool_steps == [] and not plan.reading["retried"], (text, plan.reading)
+        assert plan.frames == [_frame(text, "tool", f"frame.{text}.{text}", {role: None}, False)], (text, plan.frames)
+    given = _plan(runtime, "take", [_open("give", "tool", {"ticket": None, "person": "Milo"})])
+    assert given.status == "unread" and "composed" not in given.reading and given.tool_steps == [], given.reading
 
 
 @pytest.mark.needs_fcg

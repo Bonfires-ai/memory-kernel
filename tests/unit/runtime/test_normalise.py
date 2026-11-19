@@ -49,6 +49,23 @@ def test_sentinels_wrap_the_text_and_cut_to_nothing():
     assert forged.text == f"{SENTINEL_START} ana \ufffd milo {SENTINEL_END}"
 
 
+def test_surface_keeps_the_span_as_written():
+    """``surface`` (a clause slot's cut) is the original text of the covered tokens, from the first one's first
+    character to the last one's last: no determiner dropped, no quantifier read, case, spacing and marks as written.
+    It refuses what ``np`` refuses."""
+    for reason in ("no one owns it", "every team is busy", "the team is small", "Ana's team left", "it is broken"):
+        norm = normalise(f"onboarding is too slow because {reason}")
+        left = norm.text.index(" because ") + len(" because ")
+        assert norm.spans.surface(left, len(norm.text) - len(f" {SENTINEL_END}")) == reason
+    norm = normalise("The team,  sadly, is small.")
+    assert norm.spans.surface(0, len(norm.text)) == "The team,  sadly, is small."  # a span over the sentinels
+    assert norm.spans.surface(*_span(norm, "the team")) == "The team"
+    assert norm.spans.np(*_span(norm, "the team")).text == "team"
+    for left, right in ((3, 3), (-1, 2), (0, len(norm.text) + 1), (0, 1)):
+        with pytest.raises(ValueError):
+            norm.spans.surface(left, right)
+
+
 def test_verb_marking_reads_pos_and_aux_dependents():
     """A VERB (never an AUX) is written ⟪lemma⟫; so is a non-AUX token governing an ``aux`` (spaCy tags "work" in "Where
     does Kira Dace work?" as a NOUN heading the auxiliary). A marker in the input is written as U+FFFD."""

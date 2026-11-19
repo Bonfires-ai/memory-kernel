@@ -5,7 +5,12 @@
 definition the way spike 2 did, with no LLM:
 
 * each form becomes one ROOT construction (``kind="taught"``, sentinel-anchored, its slots ``np`` slots filled by the
-  existing fillers, so an indefinite X reads through the indefinite filler);
+  existing fillers, so an indefinite X reads through the indefinite filler). A slot written ``{Y:clause}`` is a CLAUSE
+  slot instead: only the clause filler fills it (``store.CLAUSE_FILLER``, generated on load), and its value is the
+  clause as written ("no one owns it", "the team is small": no determiner dropped, no quantifier read). ``{Y:np}`` is
+  ``{Y}``; any other kind is refused. The body still writes the slot ``{Y}``. A slot's kind is no part of a form's
+  skeleton, so a clause twin of a live np form competes with it (taught with ``replace``, it takes its place);
+  it is never its duplicate;
 * each body clause is COMPREHENDED by the live grammar, with each slot written as its own name ("make X") and a slot
   the form leaves out written as its default's text (the grammar reads the default, the code never does).
   A span whose text is a slot's name becomes that slot's variable; any other span, or verb lemma, becomes a ``const``
@@ -124,7 +129,7 @@ from memory_kernel.runtime.constructions import (
     spec_id,
 )
 from memory_kernel.runtime.executor import VALUE_SPECS
-from memory_kernel.runtime.frames import frames_of
+from memory_kernel.runtime.frames import CLAUSE_FILLS, CLAUSE_SPAN, frames_of
 from memory_kernel.runtime.normalise import marked_lemma, normalise
 from memory_kernel.runtime.policy import DEFAULT_POLICY
 from memory_kernel.runtime.program import (
@@ -137,7 +142,13 @@ from memory_kernel.runtime.program import (
     ToolParam,
     validate,
 )
-from memory_kernel.runtime.store import ConstructionStore, compiled, load_store, loaded_frame_parts
+from memory_kernel.runtime.store import (
+    ConstructionStore,
+    compiled,
+    generated_fillers,
+    load_store,
+    loaded_frame_parts,
+)
 
 if TYPE_CHECKING:
     from memory_kernel.runtime.engine import Reading, RuntimeEngine
@@ -171,8 +182,11 @@ INVOKE_STEP = "?t-s{n}"
 #: the prefix of an invoked construction's internal variables, per expansion (a hyphen: no slot can take it)
 _INVOKE_FRESH = "?t-i{n}-"
 
-#: the slot kind of every taught slot (filled by the existing np fillers)
+#: the slot kind of a taught slot written ``{Name}`` (filled by the existing np fillers)
 SLOT_FILLS = "np"
+#: the slot kinds a form may write after a colon: ``{Name:np}`` (``{Name}``) and ``{Name:clause}`` (a clause kept as
+#: written: the clause filler, ``store.CLAUSE_FILLER``, fills it)
+SLOT_KINDS = frozenset({SLOT_FILLS, CLAUSE_FILLS})
 #: the variable of a taught construction's enclosing procedure (a hyphen: no slot referent can take it)
 PROCEDURE_VAR = "?t-proc"
 #: the plural marker of a reference ("them"): read with its ``window`` (several results), then dropped
@@ -185,7 +199,7 @@ _MARKERS = frozenset({"definite", "indefinite", PLURAL_OP})
 #: earlier answer into a side-effecting step)
 WINDOW_OP = "window"
 #: span ops whose offsets index the text that was read
-_SPAN_OPS = frozenset({"name-span", "lemma-span"})
+_SPAN_OPS = frozenset({"name-span", CLAUSE_SPAN, "lemma-span"})
 _SLOT = re.compile(r"\{([^{}]*)\}")
 _SLOT_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
 _SLUG = re.compile(r"[^a-z0-9]+")
@@ -492,7 +506,8 @@ def _request_problems(req: TeachRequest) -> list[str]:
 
 
 def _parse_form(text: str) -> tuple[list, list[str], list[str]]:
-    """A form's ``CxnSpec`` parts (literals stripped, ``{Name}`` → an np slot), its written slot names, problems."""
+    """A form's ``CxnSpec`` parts (literals stripped, ``{Name}`` and ``{Name:np}`` → an np slot, ``{Name:clause}`` → a
+    clause slot; any other kind after the colon is a problem), its written slot names, problems."""
     parts: list = []
     written: list[str] = []
     problems: list[str] = []
@@ -505,13 +520,20 @@ def _parse_form(text: str) -> tuple[list, list[str], list[str]]:
             parts.append(literal)
         if match is None:
             break
-        name = match.group(1).strip()
+        inside = match.group(1).strip()
+        name, colon, kind = inside.partition(":")
+        name, kind = name.strip(), kind.strip()
         if not _SLOT_NAME.fullmatch(name):
-            problems.append(f"form {text!r}: slot {{{name}}} must be a name ({_SLOT_NAME.pattern})")
+            problems.append(f"form {text!r}: slot {{{inside}}} must be a name ({_SLOT_NAME.pattern})")
+        elif colon and kind not in SLOT_KINDS:
+            problems.append(
+                f"form {text!r}: slot {{{inside}}} has an unknown kind {kind!r}: a slot is {{Name}}, {{Name:np}} or "
+                "{Name:clause}"
+            )
         elif name in written:
             problems.append(f"form {text!r}: slot {{{name}}} appears twice")
         else:
-            parts.append({"slot": name.lower(), "fills": SLOT_FILLS})
+            parts.append({"slot": name.lower(), "fills": kind if colon else SLOT_FILLS})
             written.append(name)
         at = match.end()
     if not any(isinstance(p, str) and _WORDY.search(p) for p in parts):
@@ -654,21 +676,27 @@ def _competition(
 
 def _duplicates(store: ConstructionStore, drafted: Sequence[tuple[CxnSpec, str]]) -> list[str]:
     """One problem per drafted form (spec, its text) that is already live as it is: a live taught or catalogue root with
-    the same meaning up to the names of its slots and variables (``_canonical``) and the same normalised form (the
-    shape, then the skeleton: only a row whose meaning matches is normalised)."""
+    the same meaning up to the names of its slots and variables (``_canonical``), the same slot kinds in form order
+    (a clause twin of an np form changes what its slot reads: it competes, it is no duplicate) and the same normalised
+    form (the shape, then the skeleton: only a row whose meaning matches is normalised)."""
     rows = [(row, _canonical(row)) for row in store.live() if row.unit == "root" and row.kind in DUPLICABLE]
     out: list[str] = []
     for spec, text in drafted:
         meaning = _canonical(spec)
         for row, theirs in rows:
             try:
-                same = theirs == meaning and _same_skeleton(row, spec)
+                same = theirs == meaning and _slot_kinds(row) == _slot_kinds(spec) and _same_skeleton(row, spec)
             except CompileError:  # a form that does not normalise duplicates nothing (competition says why)
                 same = False
             if same:
                 out.append(f"form {text!r} is already the live construction {row.id}")
                 break
     return out
+
+
+def _slot_kinds(spec: CxnSpec) -> tuple[str | None, ...]:
+    """The kind of each slot of a form, in form order."""
+    return tuple(p.get("fills") for p in spec.form if isinstance(p, dict))
 
 
 def _canonical(spec: CxnSpec) -> tuple[tuple[str, ...], ...]:
@@ -715,11 +743,11 @@ def _competes(
 def _self_read(
     store: ConstructionStore, engine: RuntimeEngine, specs: Sequence[CxnSpec], replaces: Sequence[str]
 ) -> list[str]:
-    """Load the grammar as it will stand once the draft is confirmed (the other drafts, the frame parts, the live rows
-    but those the draft replaces, then the draft's specs live and confirmed ON TOP of everything, so they apply wherever
-    they can) and read each form's own renderings (bare, and with a determiner for an np slot): each must read
-    completely through its spec. Returns the problems. The engine is left holding that grammar (the caller restores
-    it)."""
+    """Load the grammar as it will stand once the draft is confirmed (the other drafts, the frame parts and the
+    generated fillers, as ``load_store`` loads them, the live rows but those the draft replaces, then the draft's specs
+    live and confirmed ON TOP of everything, so they apply wherever they can) and read each form's own renderings
+    (bare, and with a determiner for an np slot): each must read completely through its spec. Returns the problems.
+    The engine is left holding that grammar (the caller restores it)."""
     mine = {s.id for s in specs}
     live = [s for s in store.load_order() if s.id not in replaces and s.id not in mine]
     confirmed = sorted(
@@ -727,7 +755,8 @@ def _self_read(
         key=precedence,
     )
     others = sorted((s for s in store.staged() if s.id not in mine), key=precedence)
-    order = [*others, *loaded_frame_parts([*live, *confirmed]), *live, *confirmed]
+    fillers = generated_fillers([*others, *live, *confirmed])
+    order = [*others, *loaded_frame_parts([*live, *confirmed]), *fillers, *live, *confirmed]
     engine.load([cxn for spec in order for cxn in compiled(spec)])
     problems: list[str] = []
     for spec in specs:
@@ -1009,13 +1038,16 @@ def _clause(
                         None,
                     )
                 span = cut.text
-                if span in written:
-                    slot_of[str(var)] = f"?{names[span]}"
-                    seen[span] += 1
-                    continue
-                raw.append(["const", var, span])
+            elif op == CLAUSE_SPAN:  # a clause slot of the root read through: its text as written, nothing read
+                span = norm.spans.surface(left, right)
             else:
                 raw.append(["const", var, marked_lemma(norm.text, left, right)])
+                continue
+            if span in written:
+                slot_of[str(var)] = f"?{names[span]}"
+                seen[span] += 1
+                continue
+            raw.append(["const", var, span])
             continue
         raw.append([op, *args])
     problems = [

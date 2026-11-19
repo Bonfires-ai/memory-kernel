@@ -15,6 +15,9 @@ class FakeSpans:
     def cut(self, left: int, right: int) -> str:
         return self.text[left:right]
 
+    def surface(self, left: int, right: int) -> str:
+        return self.text[left:right]
+
 
 class FakeMemory:
     def __init__(self) -> None:
@@ -333,3 +336,22 @@ def test_gather_lists_its_inputs_in_order():
     (step,) = ex.pending
     assert step.args == {"item": "x", "material": ["x", "y"]}
     assert any("arity mismatch" in p for p in validate(Program.from_meaning([["const", "?a", "x", "y"]]), registry))
+
+
+def test_clause_span_cuts_the_text_as_written():
+    """``clause-span`` is a value op of its own (a clause slot's filler names it): the span's text as written
+    (``SpanText.surface``), never the NP cut ``name-span`` takes."""
+
+    class NPSpans(FakeSpans):
+        def cut(self, left: int, right: int) -> str:  # drops a leading word, as the NP cut drops a determiner
+            return self.text[left:right].split(" ", 1)[-1]
+
+    assert VALUE_SPECS["clause-span"] == OpSpec("clause-span", ("left", "right"), ("text",), "value")
+    turn = _turn("no one owns it")
+    meaning = [["clause-span", "?y", "0", "14"], ["name-span", "?x", "0", "14"]]
+    program = Program.from_meaning(meaning)
+    ex = asyncio.run(execute(program, _registry(), FakeMemory(), turn=turn, spans=NPSpans(turn.text)))
+    assert ex.problems == [] and ex.done
+    assert ex.values["?y"] == "no one owns it" and ex.values["?x"] == "one owns it"
+    bad = [["clause-span", "?y", "?l", "?r"], ["const", "?l", "a"], ["const", "?r", "b"]]
+    assert any("clause-span offsets must be integers" in p for p in _run(bad, turn, FakeMemory(), _registry()).problems)

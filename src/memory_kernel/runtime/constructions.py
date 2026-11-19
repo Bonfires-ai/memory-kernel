@@ -26,7 +26,9 @@ A ``CxnSpec`` describes one construction as data (the shipped base set, mined ro
     ⟪say"). A filler must consume its whole span, or text stays in the root and no reading with a slot is ever
     complete. A filler may instead hold slots of its own ("before {Y}", "{P} 's {X}", "my {X}"): its literals anchor
     inside the slot's span and its slots are filled by other fillers (a nested slot named ``x`` refers to what the
-    filler's phrase refers to: "my {X}" is the X).
+    filler's phrase refers to: "my {X}" is the X). A filler of ONE word that is a marked verb alone also reads that word
+    as written, lowercased and plain (an alternate, ``_plain_as_written``): "release" alone is "⟪release⟫", a plain noun
+    in "release is late", the sentence the slot's text is read in.
 * slot kinds (``fills``): ``np``, ``name``, ``clause``, ``time`` and ``verb``. A verb slot is written between the verb
   marks the normaliser puts around every verb ("⟪publish⟫"): the compiler writes the marks into the neighbouring
   anchors (``" ⟪"`` … ``"⟫ "``), so the slot binds the lemma alone and a verb slot may sit next to an np slot ("when
@@ -56,8 +58,10 @@ sentence is tagged ("host Zed" tags "host" a proper noun, "host the Zed" a verb)
 the spec compiles to ALTERNATE constructions ``<id>#v0``, ``<id>#v1``… with one meaning and one precedence; ``spec_id``
 maps an applied name back to its spec. The bare rendering is authoritative; a further rendering the compiler refuses
 (a context that misreads the form) adds no alternate. A one-word part's marked reading as written is one more alternate
-when it differs (the base editor part "means": "⟪mean⟫" and "⟪means⟫"). A filler is normalised bare only. No base
-root or filler has alternates.
+when it differs (the base editor part "means": "⟪mean⟫" and "⟪means⟫"). A filler is normalised under the bare
+rendering only (inside a slot a determiner context is never real), and a one-word filler whose bare reading is a marked
+verb has its plain reading as written as one more alternate ("⟪release⟫" and "release"). No base root or filler has
+alternates.
 
 Sequence patterns are written with ``ensure_ascii=False``: an escaped ``\\uXXXX`` (a curly apostrophe, a sentinel)
 never matches.
@@ -322,9 +326,9 @@ _Part = str | _Slot | _Consume
 
 
 def compile_spec(spec: CxnSpec) -> CompiledCxn:
-    """Compile one spec to its ``pyfcg.Construction``(s): one per distinct in-context normalisation of its literals
-    (``normalised_variants``), named by the spec id, or ``<id>#v<n>`` when there are alternates (``spec_id`` maps an
-    applied name back to the spec)."""
+    """Compile one spec to its ``pyfcg.Construction``(s): one per distinct in-context normalisation of its literals,
+    plus a one-word form's reading as written (``_variants``), named by the spec id, or ``<id>#v<n>`` when there are
+    alternates (``spec_id`` maps an applied name back to the spec)."""
     import pyfcg
 
     _check_fields(spec)
@@ -479,7 +483,8 @@ def _variants(spec: CxnSpec, parts: list[_Part]) -> list[dict[int, str]]:
     """The distinct normalised literals of the form, one per np rendering (bare first): a verb is lemmatised and
     marked in its sentence context, which a determiner can change ("host Zed" tags "host" a proper noun, "host the
     Zed" a verb). The bare rendering is authoritative (its refusal is the spec's); a further rendering the compiler
-    refuses is a context that misreads the form ("which the Zed did …" tags "did" a verb) and adds no alternate."""
+    refuses is a context that misreads the form ("which the Zed did …" tags "did" a verb) and adds no alternate. Then a
+    one-word form's reading as written, when it differs (``_marked_as_written``, ``_plain_as_written``)."""
     variants: list[dict[int, str]] = []
     for n, rendering in enumerate(_rendered(spec, parts)):
         try:
@@ -490,23 +495,44 @@ def _variants(spec: CxnSpec, parts: list[_Part]) -> list[dict[int, str]]:
             continue
         if literals not in variants:
             variants.append(literals)
-    marked = _marked_as_written(spec, parts)
-    if marked is not None and marked not in variants:
-        variants.append(marked)
+    for written in (_marked_as_written(spec, parts), _plain_as_written(spec, parts, variants[0])):
+        if written is not None and written not in variants:
+            variants.append(written)
     return variants
+
+
+def _one_word(parts: list[_Part]) -> str | None:
+    """The word of a form that is ONE literal of one word, as written, lowercased; None for any other form, and for a
+    word that is not one token as written."""
+    if len(parts) != 1 or not isinstance(parts[0], str):
+        return None
+    word = parts[0].strip().lower()
+    if not word or any(ch.isspace() for ch in word) or not any(ch.isalnum() for ch in word):
+        return None
+    return word
 
 
 def _marked_as_written(spec: CxnSpec, parts: list[_Part]) -> dict[int, str] | None:
     """A one-word part's second reading: the word as written, lowercased, as a marked verb. A word alone has no
     sentence to tag it in, and the turn's own sentence decides: "archive" alone is a noun and stays plain, but
     "please archive it" holds the verb "⟪archive⟫"; "means" alone lemmatises to "⟪mean⟫", but the tagger keeps
-    "⟪means⟫" in "file X means make ...". None for any other form, and for a word that is not one token as written."""
-    if spec.unit != "part" or len(parts) != 1 or not isinstance(parts[0], str):
+    "⟪means⟫" in "file X means make ...". None for any other form (``_one_word``)."""
+    word = _one_word(parts) if spec.unit == "part" else None
+    return None if word is None else {0: f"{VERB_OPEN}{word}{VERB_CLOSE}"}
+
+
+def _plain_as_written(spec: CxnSpec, parts: list[_Part], bare: dict[int, str]) -> dict[int, str] | None:
+    """A one-word filler's second reading, when its ``bare`` reading is a marked verb: the word as written, lowercased,
+    plain. A filler is normalised alone, with no sentence to tag its word in, and a slot's text is read in the turn's
+    sentence: "release" alone is "⟪release⟫", but in "release is late" the slot's text is the plain noun, which the
+    marked form never matches. A verb slot holds the lemma between the marks, so there the plain word fills it only when
+    it is its own lemma ("give", never "gave"). None for any other form (``_one_word``), and when the bare reading is not
+    one marked token ("ethereum" alone stays "ethereum")."""
+    word = _one_word(parts) if spec.unit == "filler" else None
+    text = bare.get(0, "")
+    if word is None or not (text.startswith(VERB_OPEN) and text.endswith(VERB_CLOSE)) or " " in text:
         return None
-    word = parts[0].strip().lower()
-    if not word or any(ch.isspace() for ch in word) or not any(ch.isalnum() for ch in word):
-        return None
-    return {0: f"{VERB_OPEN}{word}{VERB_CLOSE}"}
+    return {0: word}
 
 
 def _rendering(parts: list[_Part], np_text: str) -> tuple[Normalised, list[tuple[int, int]]]:
