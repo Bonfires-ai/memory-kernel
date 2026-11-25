@@ -12,6 +12,7 @@
                                                                       (warm per-bonfire context server over Neo4j; [serve] extra)
     mk plan BONFIRE_ID "TEXT" --speaker NAME [--chat ID]             (debug: the runtime grammar's TurnPlan as JSON)
     mk catalogue install BONFIRE_ID FILE                               (set a bonfire's tool catalogue)
+    mk grammar install BONFIRE_ID FILE                                 (install a grammar file into a bonfire, whole or not at all)
     mk keywords                                                        (the runtime grammar's keyword glossary)
     mk inspect WORKDIR_CONV_ROOT                                       (read-only status)
     mk setup [--check [--verify]] [--offline --adopt-...] [--json]     (the pinned runtime data a build needs)
@@ -711,6 +712,105 @@ def cmd_catalogue(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_grammar(args: argparse.Namespace) -> int:
+    """``mk grammar install BONFIRE_ID FILE``: install a ``kernel-grammar/v1`` file into the bonfire's construction
+    store, all of it or none of it (``runtime.grammar.install``: every row compiles, every tool is in the bonfire's
+    catalogue, every example reads as stated on a scratch grammar, but one read through a taught row the grammar keeps,
+    which is counted and not judged). Prints ``{name, sha256, added, replaced, removed, kept_taught, examples,
+    through_taught, unexercised, note}`` (``examples``: how many were judged; ``through_taught``: how many read through
+    such a row; ``note``: null, or a plain line when no example was judged). A refused file (exit 1, every problem
+    printed, a live engine's refusal of the
+    file's rows or of an example's read among them) writes nothing. An engine fault (the engine could not start, timed
+    out, died, or the connection failed, during the self-test too) is the engine's, not the file's: exit 2 with
+    ``{"refused": "the runtime engine failed: ..."}``, and nothing written either, but in one case: the rows were
+    written and the engine could not then load them, which the message says ("... ARE written, but the engine could
+    not load them"; the bonfire holds the new grammar). Runs its own FCG engine
+    (``MK_RUNTIME_FCG_PORT``, default 9711), stopped before exit; a running ``mk serve`` reads the new rows when its
+    runtime next loads."""
+    from memory_kernel.pipeline.config import lexical_abspath
+    from memory_kernel.runtime.api import default_registry
+    from memory_kernel.runtime.catalogue import CatalogueError, parse_catalogue
+    from memory_kernel.runtime.engine import RuntimeEngine, RuntimeEngineError
+    from memory_kernel.runtime.grammar import GrammarError, install, parse_grammar
+    from memory_kernel.runtime.graph_store import NarrowWriter
+    from memory_kernel.runtime.store import ConstructionStore, StoreError
+
+    source = lexical_abspath(args.file)
+    try:
+        raw = source.read_bytes()
+    except OSError as exc:
+        return _refuse(f"{source}: cannot be read ({exc})")
+
+    def refused(err: GrammarError) -> int:
+        print(json.dumps({"refused": "the grammar file was refused", "problems": err.problems}, ensure_ascii=False))
+        return 1
+
+    try:
+        grammar = parse_grammar(raw, str(source))
+    except GrammarError as exc:
+        return refused(exc)
+    try:
+        import pyfcg  # noqa: F401  (the runtime engine registers its grammar through pyfcg)
+    except ImportError as exc:
+        return _refuse(f"mk grammar install needs pyfcg (pip install 'memory-kernel[build]'): {exc}")
+    group = args.bonfire_id
+    driver = None
+    engine = None
+    try:
+        secrets = resolve_secrets(
+            env_file=lexical_abspath(args.env_file) if args.env_file else None, container=args.secrets_from_container
+        )
+        driver, uri, _user = _bonfire_driver(args, secrets)
+        with driver.session() as session:
+            if not list(session.run("MATCH (m:BonfireMeta {group_id: $g}) RETURN m.group_id AS g", g=group)):
+                return _refuse(f"{group!r} is not a bonfire of {uri} (its group has no BonfireMeta)")
+        writer = NarrowWriter(driver, group)
+        store = ConstructionStore(writer)
+        catalogue_raw = writer.catalogue()
+        catalogue = parse_catalogue(catalogue_raw.encode("utf-8"), "catalogue") if catalogue_raw else None
+        engine = RuntimeEngine(
+            data_dir=lexical_abspath(args.data_dir) if args.data_dir else None,
+            out=lexical_abspath(args.engine_dir) if args.engine_dir else None,
+        )
+        done = install(
+            store,
+            engine,
+            grammar,
+            registry=default_registry(catalogue.tools if catalogue else ()),
+            cards=catalogue.cards if catalogue else (),
+        )
+    except GrammarError as exc:
+        return refused(exc)
+    except RuntimeEngineError as exc:
+        return _refuse(f"the runtime engine failed: {exc}")
+    except (ValueError, OSError, StoreError, CatalogueError) as exc:
+        return _refuse(f"{type(exc).__name__}: {exc}" if isinstance(exc, OSError) else str(exc))
+    except Exception as exc:  # a Neo4j that does not answer
+        return _refuse(neo4j_refusal(exc, uri=args.neo4j_uri or "the default", user=args.neo4j_user or "neo4j"))
+    finally:
+        if engine is not None:
+            engine.stop()
+        if driver is not None:
+            driver.close()
+    print(
+        json.dumps(
+            {
+                "name": done.name,
+                "sha256": done.sha256,
+                "added": done.added,
+                "replaced": done.replaced,
+                "removed": done.removed,
+                "kept_taught": list(done.kept_taught),
+                "examples": done.examples,
+                "through_taught": len(done.through_taught),
+                "unexercised": done.unexercised,
+                "note": done.note,
+            }
+        )
+    )
+    return 0
+
+
 def cmd_keywords(args: argparse.Namespace) -> int:
     """Print the keyword glossary (``docs/keywords.md`` is this output)."""
     from memory_kernel.runtime.keywords import glossary
@@ -1335,6 +1435,31 @@ def parser() -> argparse.ArgumentParser:
         help="opt-in: docker exec NAME env; beats --env-file, loses to the process environment",
     )
     ci.set_defaults(func=cmd_catalogue)
+
+    gr = sub.add_parser(
+        "grammar",
+        help="a bonfire's grammar files (kernel-grammar/v1)",
+        description="`mk grammar install BONFIRE_ID FILE` checks FILE whole (every row compiles, every tool is in the "
+        "bonfire's catalogue, every example reads as stated) and installs its rows, all or none. Prints the summary.",
+    )
+    gr_sub = gr.add_subparsers(dest="grammar_cmd", required=True)
+    gi = gr_sub.add_parser("install", help="check FILE and install its rows into the bonfire's construction store")
+    gi.add_argument("bonfire_id", help="the bonfire (its Neo4j group)")
+    gi.add_argument("file")
+    gi.add_argument("--neo4j-uri", default=None, help="default: bolt://localhost:7687")
+    gi.add_argument("--neo4j-user", default=None, help="default: neo4j")
+    gi.add_argument("--data-dir", default=None, help="where `mk setup` placed the engine (default: MK_DATA_DIR)")
+    gi.add_argument(
+        "--engine-dir", default=None, help="the engine's log and state file (default: <data dir>/runtime-fcg/<port>)"
+    )
+    gi.add_argument("--env-file", default=None, help="KEY=VALUE file for the Neo4j password; ranks last")
+    gi.add_argument(
+        "--secrets-from-container",
+        default=None,
+        metavar="NAME",
+        help="opt-in: docker exec NAME env; beats --env-file, loses to the process environment",
+    )
+    gi.set_defaults(func=cmd_grammar)
 
     kw = sub.add_parser("keywords", help="print the runtime grammar's keyword glossary (Markdown)")
     kw.set_defaults(func=cmd_keywords)

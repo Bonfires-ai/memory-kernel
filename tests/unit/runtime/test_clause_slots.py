@@ -22,7 +22,7 @@ import pytest
 import memory_kernel.runtime.store as store_module
 from memory_kernel.runtime.api import Runtime, default_registry
 from memory_kernel.runtime.catalogue import CatalogueError, parse_catalogue
-from memory_kernel.runtime.constructions import CONSUME, CxnSpec, precedence, spec_id
+from memory_kernel.runtime.constructions import CONSUME, DRAFT_SCORE, CxnSpec, entrenched, precedence, spec_id
 from memory_kernel.runtime.executor import Turn
 from memory_kernel.runtime.lexicon import Lexicon, QuestionMap
 from memory_kernel.runtime.normalise import normalise
@@ -160,7 +160,7 @@ class _LoadRecorder:
     def __init__(self) -> None:
         self.cxns: list[Any] = []
 
-    def load(self, cxns: Any) -> None:
+    def load(self, cxns: Any, **_kw: Any) -> None:
         self.cxns = list(cxns)
 
 
@@ -176,10 +176,13 @@ def _serialised(cxns: list[Any]) -> list[str]:
 
 
 def _as_before(store: Any) -> tuple[list[Any], int]:
-    """What ``load_store`` loaded before clause slots: the drafts, the frame parts of the live order, the live order."""
+    """What ``load_store`` loaded before clause slots: the drafts, the frame parts of the live order, the live order;
+    the drafts compiled at ``DRAFT_SCORE``, as every load compiles them since 2.1's final fix wave."""
     order = store.load_order()
-    specs = [*sorted(store.staged(), key=precedence), *loaded_frame_parts(order), *order]
-    return [cxn for spec in specs for cxn in compiled(spec)], len(specs)
+    drafts = sorted(store.staged(), key=precedence)
+    specs = [*loaded_frame_parts(order), *order]
+    cxns = [*(c for s in drafts for c in compiled(s, draft=True)), *(c for s in specs for c in compiled(s))]
+    return cxns, len(drafts) + len(specs)
 
 
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "office-catalogue.json"
@@ -187,13 +190,22 @@ OFFICE = parse_catalogue(FIXTURE.read_bytes(), str(FIXTURE))
 #: a taught np-only grammar: three live roots, a draft and a store's own clause filler
 NP_TAUGHT = (NP_ROW, SLOW, SEND, NP_DRAFT, HAND_CLAUSE)
 #: what the kernel before clause slots (3352780d, its own code: ``git archive``) loads for each grammar of
-#: ``_no_clause_store``: (specs loaded, constructions loaded, sha256 of their ``_serialised`` JSON). Re-pin only for a
-#: change to the base set or the compiler that is meant to change what every grammar loads.
+#: ``_no_clause_store``: (specs loaded, constructions loaded, sha256 of their ``_serialised`` JSON), hashed without the
+#: ``literals`` attribute compiled since (2.1, the text grammar's supply), which 3352780d did not write. Re-pin only for
+#: a change to the base set or the compiler that is meant to change what every grammar loads.
 AT_3352780D = {
     "base": (50, 52, "58830e644dee8cdbbffe3ce09cbef0d7ac6031575790d7f41bee6893e575786c"),
     "np-taught": (56, 58, "da12dca86a1d4c51b256c8101d183baa4e3e4d0a3a3e011df87e5aa735a7b0b4"),
     "office": (77, 81, "c29f825cad244ab6f449fa172e6331eee4e564f5d49ba9591683089ec78ab539"),
     "np-taught+office": (83, 87, "96ae687dd12cbff79907f529e3ffdbbb6d32b5db2258d7723b637c02730730f6"),
+}
+#: the same loads with every construction's ``literals`` attribute included (the 3352780d constructions, each with its
+#: literals): re-pinned with ``AT_3352780D``, or for a change to how literals are compiled
+WITH_LITERALS = {
+    "base": (50, 52, "a8e4c0a51c11eba6a37af28c298c944b9a3b51cd49de33cc327662f27b334084"),
+    "np-taught": (56, 58, "9e4df717d5fa757957285801eb50611ae0032fc15cfcad49db5c665c35a6fabd"),
+    "office": (77, 81, "33692de5e2236755a252908824106fb67e1f7d1c56d55a6c1ffe34affc00d52e"),
+    "np-taught+office": (83, 87, "d6d077d6f5c141859108b5c1b1cbf71bcb908ce22c8b0c718f9a64b781621f10"),
 }
 
 
@@ -204,10 +216,20 @@ def _no_clause_store(name: str) -> Any:
     return store
 
 
-def _loaded_sha256(store: Any) -> tuple[int, int, str]:
+def _loaded_sha256(store: Any, *, literals: bool = True) -> tuple[int, int, str]:
+    """(specs loaded, constructions loaded, sha256 of their ``_serialised`` JSON); without ``literals``, hashed with
+    each construction's ``literals`` attribute left out. A draft's constructions are loaded at ``DRAFT_SCORE`` (2.1's
+    final fix wave: a draft never outranks a live row), which is checked, and hashed with the score 3352780d compiled
+    them with, their own."""
     engine = _LoadRecorder()
     loaded = load_store(store, engine)  # type: ignore[arg-type]
-    text = json.dumps([json.loads(s) for s in _serialised(engine.cxns)], sort_keys=True, ensure_ascii=False)
+    own = {c.name: entrenched(s) for s in store.staged() for c in compiled(s)}
+    rows = [json.loads(s) for s in _serialised(engine.cxns)]
+    assert all(row[3]["score"] == DRAFT_SCORE for row in rows if row[0] in own)
+    rows = [[*row[:3], {**row[3], "score": own[row[0]]}, *row[4:]] if row[0] in own else row for row in rows]
+    if not literals:
+        rows = [[*row[:3], {k: v for k, v in row[3].items() if k != "literals"}, *row[4:]] for row in rows]
+    text = json.dumps(rows, sort_keys=True, ensure_ascii=False)
     return loaded, len(engine.cxns), hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
@@ -221,9 +243,11 @@ def test_a_grammar_with_no_clause_slot_loads_as_before(name: str):
     """No clause slot, no generated filler: the base grammar, a taught np-only grammar (a draft, and a store's own
     clause filler, included), the office catalogue's cards, and both together load exactly what the kernel before
     clause slots loaded: the same constructions in the same order, by the hash of its own load, and by the old
-    composition (drafts, frame parts, live order)."""
+    composition (drafts, frame parts, live order). Each construction also carries its literals now, and a draft's are
+    compiled at ``DRAFT_SCORE``; nothing else differs from what 3352780d loaded."""
     store = _no_clause_store(name)
-    assert _loaded_sha256(store) == AT_3352780D[name]
+    assert _loaded_sha256(store, literals=False) == AT_3352780D[name]
+    assert _loaded_sha256(store) == WITH_LITERALS[name]
     engine = _LoadRecorder()
     loaded = load_store(store, engine)  # type: ignore[arg-type]
     before, count = _as_before(store)

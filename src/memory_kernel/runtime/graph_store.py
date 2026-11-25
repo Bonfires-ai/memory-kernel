@@ -24,7 +24,8 @@ PUT_PHRASES = (
     "UNWIND $rows AS r "
     "MERGE (n:TaughtPhrase {group_id: $g, id: r.id}) "
     "ON CREATE SET n.uuid = r.uuid, n.created_at = r.created_at, n.confirmed = r.confirmed, "
-    "n.uses_ok = r.uses_ok, n.uses_failed = r.uses_failed, n.uses_world = r.uses_world "
+    "n.uses_ok = r.uses_ok, n.uses_failed = r.uses_failed, n.uses_world = r.uses_world, "
+    "n.won = r.won, n.lost = r.lost "
     "SET n.spec_json = r.spec_json"
 )
 REMOVE_PHRASES = "MATCH (n:TaughtPhrase {group_id: $g}) WHERE n.id IN $ids DETACH DELETE n"
@@ -37,20 +38,30 @@ ADD_USES = (
     "n.uses_failed = coalesce(n.uses_failed, 0) + r.failed, "
     "n.uses_world = coalesce(n.uses_world, 0) + r.world "
     "RETURN n.id AS id, coalesce(n.confirmed, 0) AS confirmed, n.uses_ok AS uses_ok, "
-    "n.uses_failed AS uses_failed, n.uses_world AS uses_world"
+    "n.uses_failed AS uses_failed, n.uses_world AS uses_world, coalesce(n.won, 0) AS won, coalesce(n.lost, 0) AS lost"
+)
+ADD_CHOICES = (
+    "UNWIND $rows AS r MATCH (n:TaughtPhrase {group_id: $g, id: r.id}) "
+    "SET n.won = coalesce(n.won, 0) + r.won, n.lost = coalesce(n.lost, 0) + r.lost "
+    "RETURN n.id AS id, coalesce(n.confirmed, 0) AS confirmed, coalesce(n.uses_ok, 0) AS uses_ok, "
+    "coalesce(n.uses_failed, 0) AS uses_failed, coalesce(n.uses_world, 0) AS uses_world, n.won AS won, n.lost AS lost"
 )
 SET_CATALOGUE = "MATCH (m:BonfireMeta {group_id: $g}) SET m.catalogue_json = $raw RETURN m.group_id AS g"
 #: every statement the serving process writes with
-WRITES: tuple[str, ...] = (PUT_PHRASES, REMOVE_PHRASES, ADD_CONFIRMED, ADD_USES, SET_CATALOGUE)
+WRITES: tuple[str, ...] = (PUT_PHRASES, REMOVE_PHRASES, ADD_CONFIRMED, ADD_USES, ADD_CHOICES, SET_CATALOGUE)
 
 READ_PHRASES = (
     "MATCH (n:TaughtPhrase {group_id: $g}) RETURN n.id AS id, n.spec_json AS spec_json, "
     "coalesce(n.confirmed, 0) AS confirmed, coalesce(n.uses_ok, 0) AS uses_ok, "
-    "coalesce(n.uses_failed, 0) AS uses_failed, coalesce(n.uses_world, 0) AS uses_world ORDER BY n.id"
+    "coalesce(n.uses_failed, 0) AS uses_failed, coalesce(n.uses_world, 0) AS uses_world, "
+    "coalesce(n.won, 0) AS won, coalesce(n.lost, 0) AS lost ORDER BY n.id"
 )
 READ_CATALOGUE = "MATCH (m:BonfireMeta {group_id: $g}) RETURN m.catalogue_json AS raw"
 READ_ROLESETS = "MATCH (n:Roleset {group_id: $g}) RETURN n.roleset AS roleset"
 READS: tuple[str, ...] = (READ_PHRASES, READ_CATALOGUE, READ_ROLESETS)
+
+#: a choice delta: ``(won, lost)``
+Choices = tuple[int, int]
 
 #: a use delta: ``(ok, failed, world)``
 Uses = tuple[int, int, int]
@@ -67,16 +78,21 @@ def phrase_json(spec: CxnSpec) -> str:
     return json.dumps(replace(spec, standing=Standing()).to_json(), ensure_ascii=False, sort_keys=True)
 
 
-def phrase_spec(row: Mapping[str, Any]) -> CxnSpec:
-    """The row a ``TaughtPhrase`` holds: its ``spec_json`` with the node's counters as the standing."""
-    spec = CxnSpec.from_json(json.loads(row["spec_json"]))
-    standing = Standing(
+def _standing(row: Mapping[str, Any]) -> Standing:
+    return Standing(
         confirmed=int(row.get("confirmed") or 0),
         uses_ok=int(row.get("uses_ok") or 0),
         uses_failed=int(row.get("uses_failed") or 0),
         uses_world=int(row.get("uses_world") or 0),
+        won=int(row.get("won") or 0),
+        lost=int(row.get("lost") or 0),
     )
-    return replace(spec, standing=standing)
+
+
+def phrase_spec(row: Mapping[str, Any]) -> CxnSpec:
+    """The row a ``TaughtPhrase`` holds: its ``spec_json`` with the node's counters as the standing."""
+    spec = CxnSpec.from_json(json.loads(row["spec_json"]))
+    return replace(spec, standing=_standing(row))
 
 
 class NarrowWriter:
@@ -118,6 +134,9 @@ class NarrowWriter:
                 "uses_ok": s.standing.uses_ok,
                 "uses_failed": s.standing.uses_failed,
                 "uses_world": s.standing.uses_world,
+                # None sets no property: a row nobody chose between is stored as before choices existed
+                "won": s.standing.won or None,
+                "lost": s.standing.lost or None,
             }
             for s in puts
         ]
@@ -158,15 +177,21 @@ class NarrowWriter:
 
         with self.driver.session() as session:
             stored = session.execute_write(tx_fn)
-        return {
-            r["id"]: Standing(
-                confirmed=int(r["confirmed"]),
-                uses_ok=int(r["uses_ok"]),
-                uses_failed=int(r["uses_failed"]),
-                uses_world=int(r["uses_world"]),
-            )
-            for r in stored
-        }
+        return {r["id"]: _standing(r) for r in stored}
+
+    def add_choices(self, deltas: Mapping[str, Choices]) -> dict[str, Standing]:
+        """Add choice deltas ``{id: (won, lost)}`` to the counters; returns the counters now stored, by id (a phrase the
+        graph does not hold is left out)."""
+        rows = [{"id": i, "won": won, "lost": lost} for i, (won, lost) in sorted(deltas.items())]
+        if not rows:
+            return {}
+
+        def tx_fn(tx: Any) -> list[dict[str, Any]]:
+            return [dict(r) for r in tx.run(ADD_CHOICES, g=self.group, rows=rows)]
+
+        with self.driver.session() as session:
+            stored = session.execute_write(tx_fn)
+        return {r["id"]: _standing(r) for r in stored}
 
     def set_catalogue(self, raw: str) -> None:
         """Make ``raw`` (the catalogue's JSON text) the bonfire's ``catalogue_json``. ``LookupError`` when the group has no

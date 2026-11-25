@@ -15,11 +15,11 @@ the cap is never exceeded). A port something else listens on (``PortBusy``: a fo
 live owner) is skipped for the next free port of the range. Every engine stops when serving stops (``close``; a slot
 that fails is logged and the others go on).
 
-**Teaching.** A teach reads its body clauses and its forms' own renderings (well under 2 s; a confirm reads nothing)
-and holds the bonfire's engine. While a bonfire teaches or confirms, its plans wait for it to end, at most
-``teach_wait_ms`` (default 15000), then answer with an ``unread`` plan (``licence`` null, diagnostic
-``BUSY_TEACHING``), so the agent runtime runs the turn as today. A resume waits for the teach to end, at most
-``resume_wait_s``, then answers 503 with ``Retry-After``. Other bonfires are not affected.
+**Teaching.** A teach reads its body clauses and its forms' own renderings (a root's well under 2 s, a filler's read
+back up to 2 s more plus the first search of each root; a confirm reads nothing) and holds the bonfire's engine. While a bonfire teaches or confirms, its
+plans wait for it to end, at most ``teach_wait_ms`` (default 15000), then answer with an ``unread`` plan (``licence``
+null, diagnostic ``BUSY_TEACHING``), so the agent runtime runs the turn as today. A resume waits for the teach to end,
+at most ``resume_wait_s``, then answers 503 with ``Retry-After``. Other bonfires are not affected.
 
 **Catalogue.** A bonfire's ``BonfireMeta.catalogue_json`` (absent until the first PUT: no tools, no cards, as a
 missing catalogue file was in 1.8) gives its runtime the tools and their generated cards (``Runtime(cards=...)``; never
@@ -380,26 +380,39 @@ def _body_entry(entry: Any) -> bool:
 
 def parse_teach(body: Any) -> TeachRequest | str:
     """A ``TeachRequest`` from ``{"forms": [str], "body": [str | {"call": str, "args"?: {str: str}}], "defaults"?:
-    {str: str}, "teacher": str, "chat_id": str, "replace"?: bool}``, or why the body is refused (422): at most
-    ``MAX_TEACH_ENTRIES`` forms and body entries, a form, a clause or a step's value of at most ``MAX_TEACH_ENTRY``
-    characters, ids (and a step's tool and parameter names) at most ``MAX_ID``, every string valid UTF-8. What a teach
-    refuses by content (a form with no literal, a body clause that does not read, a step naming no tool) is a ``Draft``
-    with problems, not a 422."""
+    {str: str}, "teacher": str, "chat_id": str, "replace"?: bool, "fills"?: str | null, "affordance"?: [str] | null,
+    "modify"?: str | null}``, or why the body is refused (422): at most ``MAX_TEACH_ENTRIES`` forms, body entries and
+    affordance words, a form, a clause or a step's value of at most ``MAX_TEACH_ENTRY`` characters, ids (and a step's
+    tool and parameter names, ``fills``, ``modify`` and each affordance word) at most ``MAX_ID``, every string valid
+    UTF-8. ``fills`` is the slot kind a taught filler fills (absent or null: a root); ``affordance`` the words that raise
+    a root's frame (absent or null: derived from the form; ``[]``: none); ``modify`` the id of a live construction the
+    teach modifies, and with it ``forms`` and ``body`` may be empty or absent (each kept as stored). What a teach
+    refuses by content (a form with no literal, a body clause that does not read, a step naming no tool, a kind no slot
+    has, a word that is two, a row that cannot be modified) is a ``Draft`` with problems, not a 422."""
     if not isinstance(body, dict):
         return "the body must be a JSON object"
     if unencodable(body):
         return UNENCODABLE
-    known = {"forms", "body", "defaults", "teacher", "chat_id", "replace"}
+    known = {"forms", "body", "defaults", "teacher", "chat_id", "replace", "fills", "affordance", "modify"}
     unknown = sorted(set(body) - known)
     if unknown:
         return f"unknown teach fields {unknown} (a teach is {sorted(known)})"
-    forms, steps = body.get("forms"), body.get("body")
-    if not isinstance(forms, list) or not forms or not all(isinstance(v, str) for v in forms):
-        return '"forms" must be a non-empty list of strings'
+    modify = body.get("modify")
+    if modify is not None:
+        if not isinstance(modify, str) or not modify.strip():
+            return '"modify" must be the id of a live construction (a non-empty string), or null'
+        if (reason := _too_long("modify", modify, MAX_ID)) is not None:
+            return reason
+    # a modify keeps what it leaves out: its forms and its body may be empty or absent
+    some = "" if modify is not None else "non-empty "
+    forms = body.get("forms", [] if modify is not None else None)
+    steps = body.get("body", [] if modify is not None else None)
+    if not isinstance(forms, list) or not (forms or modify is not None) or not all(isinstance(v, str) for v in forms):
+        return f'"forms" must be a {some}list of strings'
     if len(forms) > MAX_TEACH_ENTRIES or any(len(v) > MAX_TEACH_ENTRY for v in forms):
         return f'"forms" holds at most {MAX_TEACH_ENTRIES} entries of at most {MAX_TEACH_ENTRY} characters'
-    if not isinstance(steps, list) or not steps or len(steps) > MAX_TEACH_ENTRIES:
-        return f'"body" must be a non-empty list of at most {MAX_TEACH_ENTRIES} entries'
+    if not isinstance(steps, list) or not (steps or modify is not None) or len(steps) > MAX_TEACH_ENTRIES:
+        return f'"body" must be a {some}list of at most {MAX_TEACH_ENTRIES} entries'
     if not all(_body_entry(v) for v in steps):
         return (
             f'"body" holds clauses of at most {MAX_TEACH_ENTRY} characters or structured steps {{"call": <tool>, '
@@ -421,13 +434,31 @@ def parse_teach(body: Any) -> TeachRequest | str:
     replace = body.get("replace", False)
     if not isinstance(replace, bool):
         return '"replace" must be true or false'
+    fills = body.get("fills")
+    if fills is not None:
+        if not isinstance(fills, str) or not fills.strip():
+            return '"fills" must be the slot kind a filler fills (a non-empty string), or null for a root'
+        if (reason := _too_long("fills", fills, MAX_ID)) is not None:
+            return reason
+    affordance = body.get("affordance")
+    if affordance is not None and (
+        not isinstance(affordance, list)
+        or len(affordance) > MAX_TEACH_ENTRIES
+        or not all(isinstance(w, str) and len(w) <= MAX_ID for w in affordance)
+    ):
+        return (
+            f'"affordance" must be a list of at most {MAX_TEACH_ENTRIES} words of at most {MAX_ID} characters, or null'
+        )
     return TeachRequest(
-        forms=list(body["forms"]),
+        forms=list(forms),
         body=list(steps),
         defaults=dict(defaults),
         teacher=body["teacher"],
         chat_id=body["chat_id"],
         replace=replace,
+        fills=fills,
+        affordance=list(affordance) if affordance is not None else None,
+        modify=modify,
     )
 
 
@@ -444,14 +475,18 @@ def parse_confirm(body: Any) -> str | tuple[str]:
 
 
 def draft_json(draft: Draft) -> dict[str, Any]:
-    """A teach's answer: the draft id, the staged spec rows, the problems, and ``competes`` (form text -> the frames the
-    live grammar reads that form's own renderings as, before the draft: ``Draft.competes``)."""
-    return {
+    """A teach's answer: the draft id, the staged spec rows, the problems, ``competes`` (form text -> the frames the
+    live grammar reads that form's own renderings as, before the draft: ``Draft.competes``) and, for a filler only,
+    ``inside`` (form text -> the live root it was read inside: ``Draft.inside``; a root's answer is as it was)."""
+    out: dict[str, Any] = {
         "draft_id": draft.draft_id,
         "specs": [s.to_json() for s in draft.specs],
         "problems": list(draft.problems),
         "competes": {form: [dict(f) for f in frames] for form, frames in draft.competes.items()},
     }
+    if draft.inside:
+        out["inside"] = dict(draft.inside)
+    return out
 
 
 def refusal(reason: str) -> dict[str, Any]:

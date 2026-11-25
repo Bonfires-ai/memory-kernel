@@ -1,5 +1,99 @@
 # Changelog
 
+## 2.1.0 (2026-11-25)
+
+- **A grammar file installs whole or not at all.** A `kernel-grammar/v1` file is JSON: a `name`, `rows` (constructions
+  as the store holds them, with an optional `score` and, for a root, an optional `affordance`) and `examples` (a
+  sentence and the tool steps its first reading must give, at least one step). `runtime.grammar.install` and
+  `mk grammar install BONFIRE_ID FILE` check the whole file before they write anything: every row compiles, no filler
+  slot is named `l` or `r`, every tool a meaning calls is in the catalogue with that many arguments, the ids are unique,
+  and every example reads as stated on the engine, on a scratch grammar of the live rows the store would hold after the
+  install. An id may not be a base row's, the generated clause filler's (`clause`), a catalogue card's, one in the frame
+  parts' namespace (`frame.`), or one a stored row holds that this grammar did not install. A row may not state `kind`,
+  `status`, `standing`, `provenance` or `as_written`. Then one write: the file's rows go in as `hand` rows whose
+  provenance names the grammar and the file's hash, and this grammar's other installed rows (the ones the file no
+  longer holds) are removed; a row teach has modified since stays. A row that stays keeps its counters. A refused file writes nothing and leaves the engine as it was.
+- **For callers: what an install returns.** `Installed` gives the name and hash, the rows added, replaced and removed,
+  `kept_taught` (ids of the file that teach has modified since: the taught row stays, the file's row is left out),
+  `examples` (how many examples were judged), `through_taught` (the examples read through such a taught row: named,
+  not judged), `unexercised` (rows put that no judged example applied) and `note` (a plain line when no example was
+  judged). When an install keeps taught rows and an example fails, the failing examples are read once more with the
+  file's rows in the kept rows' places. One that reads as stated there, through the file's row for a kept id, is named in
+  `through_taught`, so a modify of an installed row's form does not make its file impossible to install again. Any
+  other failing example refuses the file, and its line names the kept rows.
+- **For callers: `mk grammar install` exits 1 for a refused file and 2 for everything else.** Exit 1 prints every
+  problem (`{"refused": "the grammar file was refused", "problems": [...]}`); exit 2 prints `{"refused": "..."}`: an
+  engine fault, a file that cannot be read, a group that is not a bonfire, a Neo4j that does not answer. In one exit-2
+  case the rows are written: the write landed and the engine could not then load them, and the message says so. In the
+  library, `GrammarError` is a refused file and `RuntimeEngineError` an engine fault; a live engine that refuses the
+  scratch grammar or an example's read (`engine.Refused`) is a problem of the file. Nothing else may read on the
+  engine while the door works. The door leaves the engine as it found it: a started engine (`RuntimeEngine.started`,
+  also one a fault tore down) ends running on the bonfire's grammar, one not started ends stopped.
+- **A row may state a score, and recorded choices move it.** `score` is a number from 0.2 to 0.8; absent, the row
+  scores 0.5 and is stored as before. `ConstructionStore.record_choices([(winner, loser), ...])` counts picks in one
+  write, as `won` and `lost` counters on the node (the writer's new `add_choices`). A row compiles with
+  `start + 0.2 × (won − lost) / (won + lost + 4)`, never more than 0.2 from its start. A side with no stored row (a base
+  row, the generated clause filler, a card) is skipped; a side that a confirmed replace or modify took out counts for
+  the live row its chain leads to. Among equal scores the last loaded still wins.
+- **For callers: a recorded choice changes no reading until the grammar is loaded again.** A running `Runtime` reads on
+  the scores it loaded. Load the grammar again with `runtime.store.load_store(store, engine)`; there is no
+  `Runtime.reload()`.
+- **For callers: a row that states `score` or `affordance` cannot be opened by a 2.0.x process.** Its `from_json`
+  refuses the field ("unknown spec fields"), and the error is raised out of `ConstructionStore.__init__`, so the store
+  does not open. A bonfire gets such rows from `mk grammar install` (a file row stating either), from a teach that
+  states an affordance, and from a modify of a row that has one. From then on every process serving the bonfire must be
+  2.1. Recorded choices alone do not do this: `won` and `lost` are node properties, and 2.0.x does not read them.
+- **For callers who implement the store's writer:** it needs `add_choices(deltas)`, which adds to `won` and `lost` and
+  returns the standing now stored.
+- **Teach makes a filler.** `TeachRequest(fills=<slot kind>)` (HTTP `"fills"`) makes each form a filler of that kind,
+  with as many slots as it needs. Its body names its own whole span `{X}`; a slot named X, L or R is refused. It is read
+  back inside a live root that has a slot of its kind, within a 2 s deadline for the whole draft (each root's first
+  search aside), and passes when any complete analysis applies both; the draft names that root (`Draft.inside`, HTTP
+  `"inside"`). With no such root the teach is refused before anything is read. A taught filler states no score, so it
+  starts at 0.5. A root teaches as on 2.0.2, with the same draft ids and rows (up to variable names).
+- **A root may state its affordance.** `affordance` lists the words that raise its frame, one frame part each; `[]`
+  gives none. Unstated, it is derived from the form as before, and the row has no `affordance` key.
+- **Teach modifies a live construction.** `modify=<id>` gives only the parts that change: one form (the row's slots, by
+  name and in order), a body, or an affordance. Taught, mined and installed rows may be modified; a base row, a card,
+  a hand row no grammar installed, a draft and a part may not. The result is checked as a new construction is and
+  staged as a draft; on confirm it takes the row's place and keeps its standing, unless the form's skeleton changed. A
+  taught root with the skeleton of an installed row is refused with or without `replace`, and the refusal names the way
+  out (`modify <id>`).
+- **For callers: a modify gives the row a new id.** Stored references follow `provenance["replaced"]`, and a choice
+  recorded against the old id counts for the new row. A modified installed root is a taught row from then on: its
+  frame's kind changes from `tool` to `phrase`, its name from the procedure's to the new id, and its roles from the
+  tool's parameters to the slot names, even when only its affordance changed.
+- **For callers: a staged draft never outranks a live row.** Rank is now the score, and the load order only breaks a
+  tie. A draft is compiled where it loads for everyone at `DRAFT_SCORE` (0.0), below any score a live row can have,
+  whatever its own score and counters say. Until the confirm, wherever a live row reads their turn everyone else reads
+  what they read before the draft existed, and a draft reads only where nothing live does, also for its teacher. Its self-read still loads it on top
+  with its own score. On a 2.0.2 grammar, where every row scored 0.5 and a draft loaded before every live row, a draft
+  already lost every tie.
+- **Alternatives.** `Runtime.alternatives(turn, through=, limit=16, maximal=True)` returns `Alternatives(found,
+  cut_short)`: every distinct complete analysis of the turn, each a plan walked with `resume` exactly as one from
+  `plan`, with its path (each construction and the slot it filled). The first is `plan`'s reading when `plan` reads the
+  turn completely with a reading this speaker may use. It never returns a reading through someone else's draft, never
+  records standing, and keeps up to `limit` plans per call in the runtime's one plan cache (256 plans, shared with
+  every chat's pending plans).
+- **`Runtime(analyses=, raise_engine_errors=)`.** `analyses` (default 3) is how many analyses a plan's frames report;
+  1 reads the primary alone. `raise_engine_errors=True` raises the `RuntimeEngineError` that would leave a turn
+  unread, instead of planning it unread with a `runtime engine:` diagnostic.
+- **The search fills the leftmost open slot first, in a grammar that composes** (a live filler holding a clause slot,
+  which no 2.0.2 bonfire has). Every analysis stays reachable. Such a grammar may list a reading's predicates in
+  another order, name another op index in a diagnostic, and bind less in a partial reading of a turn it does not read.
+  Every other grammar is searched as on 2.0.2.
+- **A filler's slot may not be named `l` or `r`.** Both doors refuse it. A stored row with one still loads, with one
+  warning naming its id.
+- **The text grammar's search is offered only the constructions whose literals occur in the text.** A construction
+  with no literal is always offered. `RuntimeEngine.offered(text)` names what a comprehension is offered.
+- **For callers: readings are the same as on 2.0.2 but for the numbers in variable names.** The supply tries fewer
+  constructions, and FCG numbers a construction's variables each time it tries one. A row taught on 2.1 stores those
+  other numbers; it is the same row up to variable names. One more difference: a search that a deadline or the node cap
+  cut short on 2.0.2 may now get further, so a turn 2.0.2 left partial can read.
+- **For callers: new public names.** `api` exports `Alternative`, `Alternatives`, `GENERATED`, `ANALYSES`,
+  `ALTERNATIVES` and the three `ALTERNATIVES_*` bounds; `engine.Refused` and `store.base_ids` were private;
+  `RuntimeEngine.started` is new.
+
 ## 2.0.2 (2026-11-19)
 
 - **A one-word filler applies when its word alone is tagged a verb.** A filler's literal is normalised alone, with no

@@ -5,7 +5,11 @@ A FRAME PART is a construction per anchor word of every live card and taught phr
 form as the compiler normalises it, as its lemma ("please send {X} to {Y}" is "send"), else its first noun or proper
 noun ("the {X} report" is "report"), alone, as a ``part`` whose meaning is ``(frame ?frame <name>)``, ``<name>`` being
 the card's tool (its ``procedure``'s name) or the phrase's spec id. A form with neither ("{X} please", "who {X}?") gets
-no part: it is reached by its full form only. A part has no slot at its edge, so it binds no role: it applies wherever
+no part: it is reached by its full form only. A root that STATES its affordance (2.1, ``CxnSpec.affordance``: taught,
+or in a grammar file) gets one such part per stated word instead ("fees", "costs": "what about costs" raises its frame,
+and its verb no longer does), or none for ``[]``; a stated word's part also reads the word as written, plain, where the
+word alone reads as a verb (``CxnSpec.as_written``: "budget" raises it in "please budget it" and "the budget"); ``affordance_problems`` says what a stated word must be (one token,
+named by a-z and 0-9, compiled as a part). A part has no slot at its edge, so it binds no role: it applies wherever
 its word occurs as a whole token ("make onboard josh" reads a partial make frame; "please take JUJ-3 and put it on
 Doing" reads take and put; the compiler anchors a part on token edges, so "archive" never reads inside "archives", and a
 one-word part also reads its word as a marked verb: "please archive it", "it was archived"), and a card still reads its
@@ -66,7 +70,15 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
-from memory_kernel.runtime.constructions import CompileError, CxnSpec, literal_tokens, normalised_forms, spec_id
+from memory_kernel.runtime.constructions import (
+    CompileError,
+    CxnSpec,
+    Kind,
+    compile_spec,
+    literal_tokens,
+    normalised_forms,
+    spec_id,
+)
 from memory_kernel.runtime.normalise import PROPER_NOUN_POS, VERB_CLOSE, VERB_OPEN
 
 if TYPE_CHECKING:
@@ -120,36 +132,93 @@ _SLOT_UNIT = re.compile(r"^slot-(.+?)(?:-\d+)?$")
 def frame_parts(specs: Sequence[CxnSpec]) -> list[CxnSpec]:
     """One frame part per (name, anchor word) of every LIVE root of kind ``hand`` or ``taught`` in ``specs``
     (``CxnSpec(id="frame.<name>.<word>", kind=<the root's kind>, unit="part", form=[word], meaning=[["frame",
-    "?frame", name]], status="live")``), deduplicated by id, in the order of ``specs``. The word is ``anchor``'s: the
+    "?frame", name]], status="live")``), deduplicated by id, in the order of ``specs``. A root that STATES its
+    affordance (``CxnSpec.affordance``, 2.1) has one part per stated word, lowercased, in the order stated, and no
+    derived one; ``[]`` gives it none (it is reached by its full form only). Otherwise the word is ``anchor``'s: the
     form's first marked verb, as its lemma ("please send {X} to {Y}" -> "send"), else its first noun or proper noun
     ("{X} for review" -> "review"); a root with neither, or whose word holds no letter or digit, gets none. ``name`` is
     a card's tool (its procedure's name; the spec id when it names none) or a taught phrase's spec id. The compiler
     anchors a part on whole tokens (``constructions``: "archive" never reads inside "archives", and a one-word part also
-    reads its word as a marked verb, "please archive it")."""
+    reads its word as a marked verb, "please archive it"). A stated word's part is ``as_written``: one the parser marks as
+    a verb when it stands alone ("budget") also reads as the plain word as written ("what about the budget"), so the
+    teacher's word raises the frame on both of its uses; a derived part compiles as it always did."""
     out: dict[str, CxnSpec] = {}
     for spec in specs:
         if spec.unit != "root" or spec.status != "live" or spec.kind not in FRAMED_KINDS:
             continue
-        word = anchor(spec)
-        slug = _SLUG.sub("-", (word or "").lower()).strip("-")
-        if word is None or not _WORDY.search(word) or not slug:
-            continue
+        words = [anchor(spec)] if spec.affordance is None else [w.lower() for w in spec.affordance]
         name = frame_name(spec)
-        part_id = f"{FRAME_PREFIX}.{name.lower()}.{slug}"
-        if part_id in out:
+        for word in words:
+            slug = _slug(word or "")
+            if word is None or not _WORDY.search(word) or not slug:
+                continue
+            part_id = f"{FRAME_PREFIX}.{name.lower()}.{slug}"
+            if part_id in out:
+                continue
+            try:  # a stated word is the teacher's: it reads on both of its uses (``CxnSpec.as_written``)
+                out[part_id] = _part(part_id, spec.kind, word, name, as_written=spec.affordance is not None)
+            except CompileError:  # a name no construction id can hold
+                continue
+    return list(out.values())
+
+
+def _slug(word: str) -> str:
+    """A frame part's last id component: the word lowercased, every run of anything but a-z and 0-9 one hyphen."""
+    return _SLUG.sub("-", word.lower()).strip("-")
+
+
+def _part(part_id: str, kind: Kind, word: str, name: str, *, as_written: bool = False) -> CxnSpec:
+    return CxnSpec(
+        id=part_id,
+        kind=kind,
+        unit="part",
+        form=[word],
+        meaning=[[FRAME_OP, "?frame", name]],
+        status="live",
+        as_written=as_written,
+    )
+
+
+def affordance_problems(words: object) -> list[str]:
+    """Why ``words`` is not an affordance the frame parts can honour, one problem per word ([] when it is): a list of
+    words, each ONE token as the normaliser reads it alone ("don't" is two), holding a letter or digit from a to z or 0
+    to 9 (the part is named by it), and compiled by the compiler as a part; no two of them one word (the same part:
+    "Fees" and "fees"). ``[]`` is an affordance (none). Teach and the install door both refuse with these."""
+    if not isinstance(words, list) or not all(isinstance(w, str) for w in words):
+        return [f"affordance is a list of words, or null to derive it from the form; got {words!r}"]
+    problems: list[str] = []
+    seen: dict[str, str] = {}
+    for word in words:
+        if not word.strip():
+            problems.append("affordance holds an empty word")
+            continue
+        if any(ch.isspace() for ch in word):
+            problems.append(f"affordance word {word!r} holds a space: each word is an entry of its own")
+            continue
+        slug = _slug(word)
+        if not slug:
+            problems.append(
+                f"affordance word {word!r} holds no letter or digit from a to z or 0 to 9 (a frame part is named by it)"
+            )
             continue
         try:
-            out[part_id] = CxnSpec(
-                id=part_id,
-                kind=spec.kind,
-                unit="part",
-                form=[word],
-                meaning=[[FRAME_OP, "?frame", name]],
-                status="live",
-            )
-        except CompileError:  # a name no construction id can hold
+            part = _part(f"{FRAME_PREFIX}.affordance.{slug}", "taught", word.lower(), "affordance", as_written=True)
+            tokens = literal_tokens(part)
+            compile_spec(part)
+        except CompileError as exc:
+            problems.append(f"affordance word {word!r}: {exc}")
             continue
-    return list(out.values())
+        if len(tokens) != 1:
+            problems.append(
+                f"affordance word {word!r} is not one word: the normaliser reads it as {len(tokens)} tokens "
+                f"({' '.join(text for text, _ in tokens)})"
+            )
+            continue
+        if slug in seen:
+            problems.append(f"affordance words {seen[slug]!r} and {word!r} are one word")
+            continue
+        seen[slug] = word
+    return problems
 
 
 def anchor(spec: CxnSpec) -> str | None:
@@ -435,6 +504,7 @@ __all__ = [
     "FRAME_PREFIX",
     "MAX_CONTEXT",
     "REPLY_OP",
+    "affordance_problems",
     "anchor",
     "compositions",
     "context_frames",

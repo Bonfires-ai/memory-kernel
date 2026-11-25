@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import replace
 
 from memory_kernel.runtime.constructions import CxnSpec, Standing
-from memory_kernel.runtime.graph_store import Uses, phrase_json, phrase_spec
+from memory_kernel.runtime.graph_store import Choices, Uses, phrase_json, phrase_spec
 from memory_kernel.runtime.store import ConstructionStore
 
 
@@ -47,6 +47,9 @@ class MemoryWriter:
                     "uses_failed": s.standing.uses_failed,
                     "uses_world": s.standing.uses_world,
                 }
+                for k in ("won", "lost"):
+                    if getattr(s.standing, k):
+                        node[k] = getattr(s.standing, k)
             node["spec_json"] = phrase_json(s)
         for i, d in Counter(confirmed).items():
             if i in self.nodes:
@@ -72,6 +75,19 @@ class MemoryWriter:
             node["uses_ok"] += ok
             node["uses_failed"] += failed
             node["uses_world"] += world
+            out[i] = replace(phrase_spec(node).standing)
+        return out
+
+    def add_choices(self, deltas: Mapping[str, Choices]) -> dict[str, Standing]:
+        self._check()
+        self.calls.append(("add_choices", dict(deltas)))
+        out = {}
+        for i, (won, lost) in deltas.items():
+            node = self.nodes.get(i)
+            if node is None:
+                continue
+            node["won"] = node.get("won", 0) + won
+            node["lost"] = node.get("lost", 0) + lost
             out[i] = replace(phrase_spec(node).standing)
         return out
 

@@ -629,8 +629,9 @@ Teaching is admission: a teach reads its body clauses and its forms' own renderi
 - **`competes`**: the draft says what the live grammar reads each form's own uses as now ("look at the office" also
   reads as the look card, place "office"), so the agent can tell the teacher.
 
-A refused teach is a draft with `problems` and changes nothing. A teach takes well under 2 seconds, and a confirm
-reads nothing.
+A refused teach is a draft with `problems` and changes nothing. A root's teach takes well under 2 seconds (a
+filler's read back may add up to 2 seconds, plus the first search of each root it is read inside), and a confirm reads
+nothing.
 
 ### Over HTTP (`mk serve`)
 
@@ -656,8 +657,8 @@ process lives. Starting one more engine than the cap first stops the engine of t
 by pid. Its plans and resumes stay valid, and its engine starts again on its next plan. Engines stop when `mk serve`
 stops.
 
-**Teach and confirm hold the bonfire's engine** (a teach well under 2 seconds; a confirm reads nothing). While a
-bonfire teaches:
+**Teach and confirm hold the bonfire's engine** (a root's teach well under 2 seconds, a filler's longer; a confirm
+reads nothing). While a bonfire teaches:
 
 - a plan for it waits up to `MK_SERVE_TEACH_WAIT_MS` (15 s default); past that it answers an `unread` plan whose
   diagnostic is `runtime busy: teaching` (`runtime busy: reloading the tool catalogue` during a catalogue `PUT`), and

@@ -39,11 +39,23 @@ continued solution by solution (``next-cip-solution`` on its processor) without 
 holds one), keeping one node per root construction until ``n`` roots, the search runs out, ``ALL_SOLUTIONS_CAP`` more
 solutions or ``deadline_ms`` (checked at every node of the continued search, which then ends inside the engine): the
 competing analyses, counted by root, so a root's filler paths ("the report" through np-the and np-bare in each of two
-slots is four solutions) never crowd another root out. FRAME PARTS (``part``-labelled constructions) are searched
-linearly: a node gets at most one part-created child (``_FRAME_PARTS_LISP``), so a message's parts apply one after
+slots is four solutions) never crowd another root out. ``comprehend_every(text, cap=, node_cap=, deadline_ms=)``
+keeps every complete analysis instead, one root's included, under a count, a node cap and a deadline of its own (the
+node cap is the grammar's again before the engine answers, also when the search errors), and says whether a bound
+ended the search. FRAME PARTS (``part``-labelled constructions) are searched linearly: a node gets at most one
+part-created child (``_FRAME_PARTS_LISP``), so a message's parts apply one after
 another, never in every order and subset (ten clauses with a verb each were 530 nodes and a second a read). A slot
 filler must consume its slot's text (a ``.{1,n}`` sequence over the slot's boundaries): a filler that only binds the
 boundaries leaves the slot text in the root, and no slot reading could ever be complete.
+
+SUPPLY. A comprehension on the text grammar is offered, at every node, only the constructions every one of whose
+literals (the ``literals`` attribute ``constructions.compile_spec`` writes) occurs in the text it reads, in the order
+pyfcg's default ``:all-cxns`` supply offers them (``SUPPLY``, ``_SUPPLY_LISP``); a construction with no literal is
+always offered, and a search with no text to read (a formulation: the supply mode is one key for both directions) is
+offered everything. A construction left out could not apply in that search, so under the same bounds every reading is
+the one ``:all-cxns`` gives, but for the numbers FCG gives variables (it numbers a construction's variables each time
+it tries one); a search that a deadline or a node cap used to cut short may now get further before the bound.
+``offered(text)`` names what a comprehension of ``text`` is offered.
 
 THE UNIT GRAMMAR. ``load(cxns, tiers=...)`` loads the CLEVR-style unit grammar into
 its own hashed grammar (``UNIT_GRAMMAR_ID``) beside the text grammar above, and ``comprehend_units`` reads one turn's
@@ -65,6 +77,7 @@ import copy
 import http.client
 import json
 import os
+import re
 import signal
 import threading
 import time
@@ -155,6 +168,121 @@ _FRAME_PARTS_LISP = (
 )
 #: the frame-part node test, put before pyfcg's default node tests of the text grammar (re-asserted after every clear)
 FRAME_PARTS_TEST = ":mk-runtime-parts"
+#: the text grammar's node test for slot fillers (a ``filler``-labelled construction), on only for a grammar that
+#: composes (``store.composes``). A child created by a filler is rejected only when the slot it filled has integer
+#: boundaries and another open slot of its parent (a slot unit whose footprints lack ``filled``) with integer boundaries
+#: starts strictly to its left: the leftmost open slot is filled first. A slot whose boundaries are not both integers
+#: takes no part in the ordering (a child filling one is never rejected; it is never counted as the leftmost). The
+#: compiler cannot build such a slot today: two adjacent slots are refused (``constructions.py``, "adjacent ... need a
+#: literal anchor between them"), so every slot sits between literal anchors or the edge's own variables, bound once
+#: its holder applies; the guard is for a construction set that does. Every COMPLETE analysis stays reachable (each is
+#: built in that one canonical order); the other orders of filling the same slots are never built: without it a node
+#: with k open slots spreads into every subset of them, and a sentence of four operators and two connectives took 286
+#: nodes (8 s) and, at pyfcg's default cap of 250 nodes, fell back to its shallowest analysis; with it, 160 nodes (2 s)
+#: and the full analysis. A PARTIAL reading of a turn the grammar does not read may bind less: when the leftmost open
+#: slot cannot be filled, a filler of a slot to its right is rejected too, so the partial reading binds less
+#: (pinned by ``test_a_partial_reading_stops_at_a_slot_nothing_fills``).
+_SLOT_ORDER_LISP = (
+    "(progn"
+    " (defun fcg-go::runtime-units (node)"
+    "   (let ((app (fcg::cipn-car node)))"
+    "     (when app (fcg::left-pole-structure (fcg::car-resulting-cfs app)))))"
+    " (defun fcg-go::runtime-feat (u name)"
+    "   (second (find name (fcg::unit-body u)"
+    '                 :key (lambda (f) (if (symbolp (first f)) (symbol-name (first f)) "")) :test #\'string=)))'
+    " (defun fcg-go::runtime-open-slots (node)"
+    "   (loop for u in (fcg-go::runtime-units node)"
+    '         for slot = (fcg-go::runtime-feat u "SLOT")'
+    '         for fp = (fcg-go::runtime-feat u "FOOTPRINTS")'
+    '         for b = (fcg-go::runtime-feat u "BOUNDARIES")'
+    '         when (and slot (not (and (listp fp) (member "FILLED" fp'
+    '                                   :key (lambda (s) (if (symbolp s) (symbol-name s) "")) :test #\'string=))))'
+    "           collect (cons (symbol-name (fcg::unit-name u))"
+    "                         (if (and (consp b) (integerp (first b)) (integerp (second b))) (first b) nil))))"
+    " (defun fcg-go::runtime-filler-p (c)"
+    '   (and c (string-equal (format nil "~a" (or (fcg::attr-val c :label) "")) "filler")))'
+    " (defmethod fcg::cip-node-test ((node fcg::cip-node) (mode (eql :mk-runtime-slot-order)))"
+    "   (let ((parent (fcg::parent node)) (cxn (first (fcg::applied-constructions node))))"
+    "     (if (or (null parent) (not (fcg-go::runtime-filler-p cxn)))"
+    "         t"
+    "         (let* ((before (fcg-go::runtime-open-slots parent))"
+    "                (after (mapcar #'car (fcg-go::runtime-open-slots node)))"
+    "                (filled (remove-if (lambda (s) (member (car s) after :test #'string=)) before))"
+    "                (at (cdr (first filled))))"
+    "           (or (null filled) (null at)"
+    "               (notany (lambda (s) (and (cdr s) (< (cdr s) at))) before))))))"
+    " t)"
+)
+#: the slot-order node test, right after the frame-part test (re-asserted after every clear)
+SLOT_ORDER_TEST = ":mk-runtime-slot-order"
+#: the text grammar's construction supply (``SUPPLY``, set by ``_configure``). pyfcg's default, ``:all-cxns``, offers
+#: every construction at every node, and a node tries them all (``:full-expansion``): at 176 constructions a 30-word
+#: sentence took seconds. This supply offers, at every node of one search (one processor), what ``:all-cxns`` offers
+#: there, in its order, less every construction one of whose literals (its ``literals`` attribute: the normalised text
+#: of each literal part of its variant, ``constructions.compile_spec``) occurs in none of the sequence strings of the
+#: root of the processor's INITIAL structure (the text a comprehension reads, de-rendered: one string). A literal is
+#: matched inside that text and characters compare exactly (FCG Go's sequence matcher does: probed, "BECAUSE" never
+#: matches a "because" pattern), so a construction left out can apply at no node of that comprehension: under the same
+#: bounds its readings are those ``:all-cxns`` gives (a search a bound used to cut short may now get further). One with
+#: no literal (an empty or missing attribute) is always offered. A processor whose initial root holds no sequence
+#: string has no text to filter by and is offered the stock list unchanged: a formulation (``cxn-supplier-mode`` is one
+#: key for both directions, and a formulation's root holds the meaning), or any other search without a text. Each
+#: construction is decided once per processor (a table on the processor's blackboard), so the searches
+#: ``comprehend_all`` and ``comprehend_every`` continue on the same processor (``next-cip-solution``) are offered the
+#: same. The supplier is the one ``:all-cxns`` creates (``fcg::cxn-supplier``, slotless), changed to a subclass whose
+#: ``next-cxn`` filters what the stock method hands out: the stock modes, the unit grammar and every other grammar on
+#: the engine are untouched.
+_SUPPLY_LISP = (
+    "(progn"
+    " (defclass fcg-go::runtime-relevant-supplier (fcg::cxn-supplier) ())"
+    " (defun fcg-go::runtime-texts (cip)"
+    '   (labels ((nm (s) (if (symbolp s) (symbol-name s) "")))'
+    "     (let* ((units (fcg::left-pole-structure (fcg::initial-cfs cip)))"
+    '            (root (find "ROOT" units :key (lambda (u) (nm (fcg::unit-name u))) :test #\'string=))'
+    "            (form (when root"
+    '                    (second (find "FORM" (fcg::unit-body root)'
+    '                                  :key (lambda (f) (if (consp f) (nm (first f)) "")) :test #\'string=)))))'
+    "       (loop for p in (if (listp form) form nil)"
+    '             when (and (consp p) (string= (nm (first p)) "SEQUENCE") (stringp (second p)))'
+    "               collect (second p)))))"
+    " (defun fcg-go::runtime-offers-p (cxn texts)"
+    "   (let ((literals (fcg::attr-val cxn :literals)))"
+    "     (every (lambda (lit) (or (not (stringp lit)) (some (lambda (text) (search lit text)) texts)))"
+    "            (if (listp literals) literals (list literals)))))"
+    " (defun fcg-go::runtime-offered (cip cxns)"
+    "   (let ((memo (or (fcg::find-data cip 'fcg-go::runtime-offers)"
+    "                   (let ((m (cons (fcg-go::runtime-texts cip) (make-hash-table :test #'eq))))"
+    "                     (fcg::set-data cip 'fcg-go::runtime-offers m)"
+    "                     m))))"
+    "     (if (null (car memo))"
+    "         cxns"
+    "         (remove-if-not (lambda (c)"
+    "                          (multiple-value-bind (keep seen) (gethash c (cdr memo))"
+    "                            (if seen keep (setf (gethash c (cdr memo)) (fcg-go::runtime-offers-p c (car memo))))))"
+    "                        cxns))))"
+    " (defmethod fcg::create-cxn-supplier ((node fcg::cip-node) (mode (eql :mk-runtime-relevant)))"
+    "   (change-class (fcg::create-cxn-supplier node :all-cxns) 'fcg-go::runtime-relevant-supplier))"
+    " (defmethod fcg::next-cxn ((supplier fcg-go::runtime-relevant-supplier) (node fcg::cip-node))"
+    "   (let ((cxns (call-next-method)))"
+    "     (if (listp cxns) (fcg-go::runtime-offered (fcg::cip node) cxns) cxns)))"
+    " t)"
+)
+#: the text grammar's construction supply (``_SUPPLY_LISP``; re-asserted after every clear)
+SUPPLY = ":mk-runtime-relevant"
+#: the names of the constructions supply ``MODE`` offers at the top node of a search of ``TEXT``: the processor built
+#: as ``comprehend-all`` builds it (its class for the ``:heuristic-search`` mode, the text de-rendered by the grammar's
+#: own mode), no search run
+_OFFERED_LISP = (
+    f"(let* ((inv fcg-go::{GRAMMAR_ID})"
+    "       (cip (make-instance 'fcg::construction-inventory-processor-heuristic-search"
+    "                           :construction-inventory inv :direction 'fcg::<-"
+    "                           :initial-cfs (fcg::de-render TEXT (fcg::get-configuration inv :de-render-mode)"
+    "                                                        :cxn-inventory inv)))"
+    "       (top (fcg::top-node cip)))"
+    "  (mapcar (lambda (c) (string-downcase (symbol-name (fcg::name c))))"
+    "          (fcg::next-cxn (fcg::create-cxn-supplier top MODE) top)))"
+)
+_MODE = re.compile(r":[a-z0-9-]+")
 _RESET_LISP = f"(progn (setf fcg-go::*runtime-last* nil) {RESET_IDS_FORM})"
 #: what one solution node says, as ``info``: ``("complete" | "incomplete" (left right) | "none" pieces slots)`` -- its
 #: goal-test status; the boundaries of the one top unit of the analysis (no other unit lists it as a subunit; not the
@@ -243,6 +371,74 @@ _ALL_LISP = _NODE_LISP.replace(
     "                            out)))))))"
     "   (reverse out)))",
 )
+#: every complete analysis of ``TEXT`` (``comprehend_every``), not one per root. First the search ``comprehend`` runs,
+#: under the grammar's own node cap and with no deadline (an explicit ``:n 1`` passes the first-solution bound): it is
+#: bounded as ``comprehend``'s is, and its first solution is ``comprehend``'s reading. Then the node cap is ``NODES``
+#: and, when the grammar's own cap had ended that first search (more nodes created than it allows), the search starts
+#: again under ``NODES``; the search is continued (``next-cip-solution``, frame parts left out as in ``_ALL_LISP``)
+#: until ``CAP`` complete solutions in all, a node that did not succeed or none (the search ran out), or ``DEADLINE``
+#: ms from the request's start (``*runtime-stop*``, checked at every node of every search after the first). The
+#: grammar's node tests are left as loaded; the old node cap is put back by the ``unwind-protect``
+#: however the form ends (a search that errors included). Answers ``(rows cut)``: per complete solution its meaning,
+#: applied names (application order), ``info`` and its fills: per construction applied, in the same order, the slot
+#: unit it filled (lowercased as in ``info``), "" for one that filled none (the root), read off the search tree: the
+#: open slot units (``fcg-go::runtime-open-slots``) of the node before it that its own node no longer holds open.
+#: ``cut`` is t when a bound ended the search (``CAP`` solutions taken, past ``DEADLINE``, or more nodes created than
+#: ``NODES``: a node past the cap is created and rejected, ``:restrict-nr-of-nodes``)
+_EVERY_LISP = _NODE_LISP.replace(
+    "BODY",
+    f"(let* ((inv fcg-go::{GRAMMAR_ID})"
+    "       (old-nodes (fcg::get-configuration inv :max-nr-of-nodes))"
+    "       (stop (+ (get-internal-real-time) (round (* DEADLINE internal-time-units-per-second) 1000)))"
+    "       (out nil)"
+    "       (cip nil))"
+    "  (labels ((cxns (node) (reverse (fcg::applied-constructions node)))"
+    "           (ok (node) (member \"SUCCEEDED\" (fcg::statuses node) :key #'nm :test #'string=))"
+    "           (fills (node)"
+    "             (let ((done nil))"
+    "               (loop for n = node then p"
+    "                     for p = (fcg::parent n)"
+    "                     while p"
+    "                     do (let ((still (mapcar #'car (fcg-go::runtime-open-slots n))))"
+    "                          (push (string-downcase"
+    "                                 (or (find-if (lambda (s) (not (member s still :test #'string=)))"
+    "                                              (mapcar #'car (fcg-go::runtime-open-slots p)))"
+    '                                     ""))'
+    "                                done)))"
+    "               done))"
+    "           (row (node m)"
+    "             (list m (mapcar (lambda (c) (string-downcase (nm (fcg::name c)))) (cxns node)) (info node)"
+    "                   (fills node)))"
+    "           (run-search (bounded)"
+    "             (let* ((vals (let ((fcg-go::*runtime-stop* (when bounded stop)))"
+    "                            (multiple-value-list (fcg:comprehend-all TEXT :cxn-inventory inv :n 1 :silent t))))"
+    "                    (nodes (second vals))"
+    "                    (node (if (listp nodes) (first nodes) nodes)))"
+    "               (setf cip (third vals))"
+    "               (when (and node (ok node) (< (length out) CAP))"
+    "                 (push (row node (first (first vals))) out))"
+    "               node)))"
+    "    (unwind-protect"
+    "         (let ((node (run-search nil)))"
+    "           (fcg::set-configuration inv :max-nr-of-nodes NODES)"
+    "           (when (and old-nodes cip (> (fcg::node-counter cip) old-nodes))"
+    "             (setf node (run-search t)))"
+    "           (when (and node (ok node))"
+    "             (let ((fcg-go::*runtime-parts* :none) (fcg-go::*runtime-stop* stop))"
+    "               (setf (fcg::queue cip) (remove-if #'fcg-go::runtime-holds-part-p (fcg::queue cip)))"
+    "               (loop while (and (< (length out) CAP) (< (get-internal-real-time) stop))"
+    "                     do (let ((next (fcg::next-cip-solution cip :notify nil)))"
+    "                          (unless (and next (ok next)) (return))"
+    "                          (push (row next (fcg::extract-meanings"
+    "                                            (fcg::left-pole-structure (fcg::car-resulting-cfs (fcg::cipn-car next)))))"
+    "                                out))))))"
+    "      (fcg::set-configuration inv :max-nr-of-nodes old-nodes))"
+    "    (list (reverse out)"
+    "          (if (or (>= (length out) CAP) (> (get-internal-real-time) stop)"
+    "                  (and cip (> (fcg::node-counter cip) NODES)))"
+    "              t"
+    "              nil))))",
+)
 #: stripped from both ends of a piece of text still in the root: the joining spaces and the sentinels
 _EDGES = f" {SENTINEL_START}{SENTINEL_END}"
 
@@ -278,8 +474,11 @@ def _slot_units(raw: Any) -> tuple[tuple[str, str, int, int], ...]:
     )
 
 
-def _reading(meaning: list[Any], applied: tuple[str, ...], ms: float, status: list[Any]) -> Reading:
-    """A text-grammar ``Reading`` from a meaning, the applied names (application order) and a node's ``info``."""
+def _reading(
+    meaning: list[Any], applied: tuple[str, ...], ms: float, status: list[Any], fills: tuple[str, ...] = ()
+) -> Reading:
+    """A text-grammar ``Reading`` from a meaning, the applied names (application order), a node's ``info`` and, from
+    ``comprehend_every``, what each applied construction filled."""
     span = status[1] if len(status) > 1 and isinstance(status[1], list) else None
     left, left_spans = _pieces(status[2] if len(status) > 2 else None)
     return Reading(
@@ -291,6 +490,7 @@ def _reading(meaning: list[Any], applied: tuple[str, ...], ms: float, status: li
         left=left,
         left_spans=left_spans,
         slots=_slot_units(status[3] if len(status) > 3 else None),
+        fills=fills,
     )
 
 
@@ -384,8 +584,9 @@ class PortBusy(RuntimeEngineError):
     owner that is still alive): ``mk serve`` tries its next free port."""
 
 
-class _Refused(RuntimeEngineError):
-    """The engine answered with an error status: the request reached it and did not change it (not dirty)."""
+class Refused(RuntimeEngineError):
+    """The engine answered with an error status: the request reached it and did not change it (not dirty). The type a
+    caller tells a live engine's refusal from a fault by (``grammar.install``: a refusal is a problem of the file)."""
 
 
 class _Timeout(RuntimeEngineError):
@@ -425,6 +626,9 @@ class Reading:
     #: subunit and the slot unit (FCG's unit names, lowercased: ``"card.take.0-unit-1"``, ``"slot-ticket-1"``) and
     #: the slot's normalised boundaries
     slots: tuple[tuple[str, str, int, int], ...] = ()
+    #: text grammar, ``comprehend_every`` only: per applied construction (``applied``'s order) the slot unit it filled,
+    #: named as in ``slots``, or "" for one that filled none (the root); () from every other read
+    fills: tuple[str, ...] = ()
 
 
 def runtime_port(environ: Mapping[str, str] = os.environ) -> int:
@@ -648,6 +852,7 @@ class RuntimeEngine:
         self._engine: Engine | None = None
         self._wanted = False  # start() was called and stop() was not: a dirty engine restarts on the next call
         self._complete: list[pyfcg.Construction] | None = None  # the last construction set loaded in full
+        self._slot_order = False  # the slot-order node test is on in the text grammar (its last load composed)
         self._units: _UnitGrammar | None = None  # the last unit grammar loaded in full
         self._feature_types: list[list[str]] = []
         self._unit_feature_types: list[list[str]] = []
@@ -660,6 +865,12 @@ class RuntimeEngine:
     def pid(self) -> int | None:
         engine = self._engine
         return engine.process.pid if engine is not None and engine.process is not None else None
+
+    @property
+    def started(self) -> bool:
+        """True from ``start()`` until ``stop()``: the engine runs, or a fault tore it down and its next call starts it
+        again (``pid`` is None then too). A caller that must leave the engine as it found it asks this, not ``pid``."""
+        return self._wanted
 
     def start(self) -> None:
         """Reclaim an orphan this ``out`` names, launch the pinned binary on ``port``, then register the grammar
@@ -818,6 +1029,10 @@ class RuntimeEngine:
             raise RuntimeEngineError("runtime engine refused the first-solution search bound")
         if self._lisp(_FRAME_PARTS_LISP) is not True:
             raise RuntimeEngineError("runtime engine refused the frame-part node test")
+        if self._lisp(_SLOT_ORDER_LISP) is not True:
+            raise RuntimeEngineError("runtime engine refused the slot-order node test")
+        if self._lisp(_SUPPLY_LISP) is not True:
+            raise RuntimeEngineError("runtime engine refused the construction supply")
         self._configure()
 
     @staticmethod
@@ -843,17 +1058,26 @@ class RuntimeEngine:
             raise RuntimeEngineError(f"kernel-ext.lisp answered {info!r}, expected version {KERNEL_EXT_VERSION}")
 
     def _configure(self) -> None:
-        """Shuffle off, and the frame-part node test (``_FRAME_PARTS_LISP``) before pyfcg's default node tests."""
+        """Shuffle off, the construction supply (``SUPPLY``), and the frame-part and slot-order node tests
+        (``_FRAME_PARTS_LISP``, ``_SLOT_ORDER_LISP``) before pyfcg's default node tests."""
         from pyfcg import grammar as pyfcg_grammar
 
         self._post(
             "/fcg-set-grammar-configuration",
             {"key": "shuffle-cxns-before-application", "value": False, "grammar": GRAMMAR_ID},
         )
-        defaults = [t for t in pyfcg_grammar.DEFAULT_GRAMMAR_CONFIGURATION["node-tests"] if t != FRAME_PARTS_TEST]
+        self._post(
+            "/fcg-set-grammar-configuration", {"key": "cxn-supplier-mode", "value": SUPPLY, "grammar": GRAMMAR_ID}
+        )
+        ours = (FRAME_PARTS_TEST, SLOT_ORDER_TEST) if self._slot_order else (FRAME_PARTS_TEST,)
+        defaults = [
+            t
+            for t in pyfcg_grammar.DEFAULT_GRAMMAR_CONFIGURATION["node-tests"]
+            if t not in (FRAME_PARTS_TEST, SLOT_ORDER_TEST)
+        ]
         self._post(
             "/fcg-set-grammar-configuration",
-            {"key": "node-tests", "value": [FRAME_PARTS_TEST, *defaults], "grammar": GRAMMAR_ID},
+            {"key": "node-tests", "value": [*ours, *defaults], "grammar": GRAMMAR_ID},
         )
 
     def _live(self) -> None:
@@ -880,14 +1104,16 @@ class RuntimeEngine:
 
     # -- grammar ------------------------------------------------------------------------------------------------------
 
-    def load(self, cxns: Sequence[Any], *, tiers: Sequence[str] | None = None) -> None:
+    def load(self, cxns: Sequence[Any], *, tiers: Sequence[str] | None = None, slot_order: bool = False) -> None:
         """Clear the grammar and add ``cxns`` in the given order (the caller orders them by ascending precedence).
+        ``slot_order`` puts the slot-order node test (``_SLOT_ORDER_LISP``) in the text grammar's search: the caller
+        passes it for a grammar that composes (``store.composes``); off, the search is as it was before the test.
         A load that fails part-way tears the engine down; the last complete set is reloaded on the next call.
 
         Without ``tiers``: the text grammar (``pyfcg.Construction`` objects; ``comprehend``). With ``tiers``: the unit
         grammar, searched as ``unit_configuration`` pins it with ``tiers`` as its label order (``comprehend_units``),
         with the kernel extensions installed first; refused, the engine untouched, unless the fcg-go pin is
-        ``KERNEL_EXT_IMAGE``.
+        ``KERNEL_EXT_IMAGE``. With ``tiers``, ``slot_order`` is ignored (the node test is the text grammar's).
         Each unit construction is a compiled construction: a mapping with ``name``, ``conditional-pole``,
         ``contributing-pole``, ``attributes`` and optionally ``feature-types`` (the ``/fcg-add-cxn`` fields), or an
         object with pyfcg's attribute names. Its ``attributes`` carry ``label`` (one of ``tiers``) and ``triggers``,
@@ -900,7 +1126,12 @@ class RuntimeEngine:
         with self._lock:
             self._live()
             cxns = list(cxns)
-            self._send_load(cxns)
+            before, self._slot_order = self._slot_order, slot_order
+            try:
+                self._send_load(cxns)
+            except BaseException:
+                self._slot_order = before
+                raise
             self._complete = cxns
 
     def add(self, cxn: pyfcg.Construction) -> None:
@@ -1033,7 +1264,7 @@ class RuntimeEngine:
                 result = self._post("/fcg-comprehend-all", {"utterance": text, "grammar": GRAMMAR_ID, "package": None})
                 ms = (time.perf_counter() - started) * 1000
                 status = self._lisp(_STATUS_LISP)
-            except _Refused:
+            except Refused:
                 raise
             except BaseException:
                 self._teardown()
@@ -1083,13 +1314,13 @@ class RuntimeEngine:
                 started = time.perf_counter()
                 answer = self._lisp(code)
                 ms = (time.perf_counter() - started) * 1000
-            except _Refused:
+            except Refused:
                 raise
             except BaseException:
                 self._teardown()
                 raise
         if isinstance(answer, list) and len(answer) == 2 and answer[0] == "ERROR":
-            raise _Refused(f"runtime engine comprehend-all: {answer[1]}")
+            raise Refused(f"runtime engine comprehend-all: {answer[1]}")
         if not isinstance(answer, list):
             raise RuntimeEngineError(f"runtime engine comprehend-all answered {str(answer)[:300]}")
         readings: list[Reading] = []
@@ -1106,6 +1337,113 @@ class RuntimeEngine:
             roots.add(root)
             readings.append(_reading(meaning, tuple(applied), ms, status))
         return readings
+
+    def comprehend_every(self, text: str, *, cap: int, node_cap: int, deadline_ms: int) -> tuple[list[Reading], bool]:
+        """Every complete analysis of ``text`` (the normalised text) in the order the search finds them, up to
+        ``cap`` in all, and whether a bound ended the search (``cap`` analyses taken, ``node_cap`` nodes created, or
+        ``deadline_ms`` passed) rather than the search running out. Unlike ``comprehend_all`` every analysis is kept,
+        one root's included (two nestings of the same fillers are two analyses). The first search is ``comprehend``'s,
+        under the grammar's own node cap and with no deadline (bounded as ``comprehend``'s is), so the first reading is
+        ``comprehend``'s reading of ``text`` whenever it is complete; then the node cap is ``node_cap`` (the search
+        starts again under it when the grammar's own cap had ended the first one) and the search goes on until
+        ``deadline_ms`` after the request began. The search runs under the grammar's node tests as loaded (the
+        slot-order test of a grammar that composes included); the continued search leaves frame parts out, as
+        ``comprehend_all``'s does. The deadline is checked at every node of every search after the first
+        (``_EVERY_LISP``): the engine puts its node cap back before it answers, whatever ended the search, an error
+        included. Each reading's ``fills`` says which slot unit each applied construction filled, read off the search
+        tree, so the construction in each slot is known whatever order the search applied them in. The request waits
+        ``request_timeout`` (the first search's) + ``deadline_ms`` + ``CLIENT_SLACK_S``; a transport failure tears the
+        engine down as every other request's does (the next call restarts it with the grammar reloaded). Each
+        ``Reading`` is as ``comprehend_all`` gives it (``ms`` is the whole request's). Refused until a ``load``
+        completed."""
+        for name, value in (("cap", cap), ("node_cap", node_cap), ("deadline_ms", deadline_ms)):
+            if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+                raise ValueError(f"{name} must be a positive integer, got {value!r}")
+        if any(_unsendable(ch) for ch in text):
+            raise ValueError(
+                "text outside the Basic Multilingual Plane or with a lone surrogate: comprehend the normaliser's text"
+            )
+        code = _guarded(
+            _EVERY_LISP.replace("DEADLINE", str(deadline_ms), 1)
+            .replace(" CAP)", f" {cap})")
+            .replace(" NODES)", f" {node_cap})")
+            .replace("TEXT", _lisp_string(text), 1)  # last: the turn's text is never searched for a placeholder
+        )
+        # the first search is comprehend's, bounded as it is (its request's timeout); then the deadline and the slack
+        timeout = self.request_timeout + deadline_ms / 1000 + CLIENT_SLACK_S
+        with self._lock:
+            if self._complete is None:
+                raise RuntimeEngineError("no construction set loaded: comprehend is refused until a load completes")
+            self._live()
+            try:
+                if self._lisp(_RESET_LISP) != 0:
+                    raise RuntimeEngineError("runtime engine id reset did not answer 0")
+                started = time.perf_counter()
+                answer = self._request(
+                    "POST", "/fcg-read-eval-print", {"lisp-code": code, "package": None}, timeout=timeout
+                )
+                ms = (time.perf_counter() - started) * 1000
+            except Refused:
+                raise
+            except BaseException:
+                self._teardown()
+                raise
+        if isinstance(answer, list) and len(answer) == 2 and answer[0] == "ERROR":
+            raise Refused(f"runtime engine comprehend-every: {answer[1]}")
+        if not (isinstance(answer, list) and len(answer) == 2 and (answer[0] is None or isinstance(answer[0], list))):
+            raise RuntimeEngineError(f"runtime engine comprehend-every answered {str(answer)[:300]}")
+        rows, cut = answer
+        readings: list[Reading] = []
+        for row in rows or []:
+            if not (
+                isinstance(row, list)
+                and len(row) == 4
+                and isinstance(row[2], list)
+                and row[2]
+                and isinstance(row[3], list)
+                and len(row[3]) == len(row[1] or ())
+                and all(isinstance(f, str) for f in row[3])
+            ):
+                raise RuntimeEngineError(f"runtime engine comprehend-every answered {str(row)[:300]}")
+            meaning, applied, status, fills = row
+            if meaning and status[0] == "complete":
+                readings.append(_reading(meaning, tuple(applied), ms, status, tuple(fills)))
+        return readings, cut is True
+
+    def offered(self, text: str) -> tuple[str, ...]:
+        """The names of the constructions the text grammar's supply (``SUPPLY``) offers at every node of a
+        comprehension of ``text`` (the normalised text, as ``comprehend`` takes it), in the order the search is offered
+        them: what ``:all-cxns`` offers, less every construction one of whose literals does not occur in the text. Read
+        through the supplier itself, on a processor built for ``text`` as a comprehension builds it, with no search
+        run: for tests, and for anyone asking why a row did not apply. Refused until a ``load`` has completed."""
+        return self._offer(text, SUPPLY)
+
+    def _offer(self, text: str, mode: str) -> tuple[str, ...]:
+        """The names supply ``mode`` (a keyword, ``":all-cxns"`` for the stock one) offers at the top node of a search
+        of ``text`` (``_OFFERED_LISP``)."""
+        if not _MODE.fullmatch(mode):
+            raise ValueError(f"a supply mode is a keyword such as {SUPPLY!r}, got {mode!r}")
+        if any(_unsendable(ch) for ch in text):
+            raise ValueError(
+                "text outside the Basic Multilingual Plane or with a lone surrogate: comprehend the normaliser's text"
+            )
+        code = _guarded(_OFFERED_LISP.replace("MODE", mode, 1).replace("TEXT", _lisp_string(text), 1))
+        with self._lock:
+            if self._complete is None:
+                raise RuntimeEngineError("no construction set loaded: offered is refused until a load completes")
+            self._live()
+            try:
+                answer = self._lisp(code)
+            except Refused:
+                raise
+            except BaseException:
+                self._teardown()
+                raise
+        if isinstance(answer, list) and len(answer) == 2 and answer[0] == "ERROR":
+            raise Refused(f"runtime engine offered: {answer[1]}")
+        if answer is not None and not (isinstance(answer, list) and all(isinstance(n, str) for n in answer)):
+            raise RuntimeEngineError(f"runtime engine offered answered {str(answer)[:300]}")
+        return tuple(answer or ())
 
     def comprehend_units(self, units: Iterable[Any]) -> Reading:
         """Read one turn's units with the unit grammar under the pinned search and its budget.
@@ -1148,7 +1486,7 @@ class RuntimeEngine:
                     "POST", "/fcg-read-eval-print", {"lisp-code": code, "package": "fcg"}, timeout=timeout
                 )
                 ms = (time.perf_counter() - started) * 1000
-            except _Refused:
+            except Refused:
                 raise
             except _Timeout as exc:
                 self._restart_runaway(timeout, exc)
@@ -1156,7 +1494,7 @@ class RuntimeEngine:
                 self._teardown()
                 raise
         if isinstance(answer, list) and len(answer) == 2 and answer[0] == "ERROR":
-            raise _Refused(f"runtime engine unit comprehension: {answer[1]}")
+            raise Refused(f"runtime engine unit comprehension: {answer[1]}")
         if not (isinstance(answer, list) and len(answer) == 7):
             raise RuntimeEngineError(f"runtime engine unit comprehension answered {str(answer)[:300]}")
         meaning, applied, statuses, left, _engine_ms, nodes, tripped = answer
@@ -1225,7 +1563,7 @@ class RuntimeEngine:
                 raise RuntimeEngineError(f"runtime engine {endpoint}: not JSON: {payload[:200]!r}") from None
         if response.status != 200 or (isinstance(value, dict) and "error-message" in value):
             message = value.get("error-message") if isinstance(value, dict) else payload[:500]
-            raise _Refused(f"runtime engine {endpoint}: HTTP {response.status}: {message}")
+            raise Refused(f"runtime engine {endpoint}: HTTP {response.status}: {message}")
         return value
 
 
@@ -1244,11 +1582,13 @@ __all__ = [
     "PORT_ENV",
     "RUNTIME_DIR",
     "STATE_FILE",
+    "SUPPLY",
     "UNIT_GRAMMAR_ID",
     "WORD_CLASSES",
     "Reading",
     "RuntimeEngine",
     "PortBusy",
+    "Refused",
     "Runaway",
     "RuntimeEngineError",
     "kernel_ext_source",

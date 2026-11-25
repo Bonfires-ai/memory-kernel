@@ -42,8 +42,14 @@ The runtime grammar (``serve.runtime.Runtimes``: one ``Runtime`` per bonfire, it
                                               "value", "detail"?}, ...]}
         200 TurnPlan.to_json()   404 unknown or expired plan   409 a resume that cannot apply
         503 + Retry-After        the bonfire still teaches after the resume waited (30 s)
-    POST /v1/bonfires/{bonfire_id}/teach     {"forms", "body", "defaults"?, "teacher", "chat_id", "replace"?}
-        200 {draft_id, specs, problems, competes}   a refused teach is a 200 with problems (well under 2 s)
+    POST /v1/bonfires/{bonfire_id}/teach     {"forms", "body", "defaults"?, "teacher", "chat_id", "replace"?, "fills"?,
+                                              "affordance"?, "modify"?}
+        200 {draft_id, specs, problems, competes, inside?}   a refused teach is a 200 with problems (a filler's may
+            come after its read back, which can use all of its 2 s deadline plus the first search of each live root
+            it is read inside); "fills" teaches a filler of that slot kind, and "inside" names the root it was read
+            inside; "affordance"
+            states the words that raise a root's frame; "modify" names a live construction to change (forms and body
+            may then be empty: each is kept as stored), confirmed like any draft
         409 a TeachError
         503 the engine cannot run it now (every engine in use, an engine that does not start, a failure under the
             teach)
@@ -794,7 +800,8 @@ def create_app(
 
     @app.post("/v1/bonfires/{bonfire_id}/teach")
     async def bonfire_teach(bonfire_id: str, request: Request) -> JSONResponse:
-        """Draft a construction from a definition (``Runtime.teach``): its body and its own renderings read (under 2 s)."""
+        """Draft a construction from a definition (``Runtime.teach``): its body and its own renderings read (a root's
+        under 2 s; a filler's read back may add up to 2 s, plus each root's first search)."""
         fire = await found(bonfire_id)
         if isinstance(fire, JSONResponse):
             return fire

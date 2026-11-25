@@ -58,6 +58,43 @@ definition the way spike 2 did, with no LLM:
   its ``replaced`` record's ``successor``), so a construction taught again changes every body that invokes it. Teaching
   validates the expanded program; a body that would invoke the draft itself (through a row it replaces) is refused.
 
+A FILLER (2.1: ``fills``, the slot kind it fills; None is a root, taught exactly as before) is taught the same way, with
+these differences. Each form becomes a filler of that kind (``unit="filler"``), its slots of any kind the compiler
+accepts (what the compiler refuses is refused with its reason). It refers to its own whole span: its meaning opens with
+the op that names the words in a slot of its kind (``clause-span``, ``lemma-span`` for a verb, else ``name-span``) over
+``?x ?l ?r``, and its body names that span ``{X}``; a slot named X, L or R is refused (X is the span, l and r its
+edges). It replaces and competes with no live row of the store (a rival filler is what entrenchment settles), so
+``replace`` with ``fills`` is refused; a duplicate of a live filler of its kind is refused as a root's is, at confirm
+too, and a form with a base filler's kind and skeleton ("it" as an np filler) competes with that base row and is
+refused, as a root competing with a base root is. It is read back inside a live root, not alone: its rendering in the
+first slot of its kind of a live root (``_read_inside``, within ``READ_BACK_DEADLINE_MS`` for the whole draft), where
+any complete analysis that applies both passes; with no such root the teach is refused before anything is read (``no
+live root has a <kind> slot``), and the draft names the root it read inside (``Draft.inside``). It states no score, so
+it starts at the neutral one (``constructions.entrenched``). A staged filler that composes changes no one's search:
+the live rows decide whether the bonfire's grammar composes (``store.load_store``). The read back tries the bonfire's
+own roots before the base set's.
+
+A root may STATE ITS AFFORDANCE (2.1, ``affordance``): the words that raise its frame, one frame part each
+(``frames.frame_parts``; ``frames.affordance_problems`` says what a word must be), or ``[]`` for none; unstated (None)
+it is derived from the form as before, and the row has no ``affordance`` key. A filler raises no frame and states none.
+
+A teach may MODIFY a live construction (2.1, ``modify``: its id), giving only the parts that change: a form (one, with
+the row's slots by name and in order, since a body invoking the row passes them by position), a body (the meaning),
+an affordance; an empty ``forms`` keeps the form as stored (its parts as they are, named by a taught row's text or, for
+any other row, by its slots in capitals, ``{H:clause}``, which a new body writes), an empty ``body`` the meaning, None
+the affordance. The row's unit and the kind it fills are kept. Modifiable: ``taught`` and ``mined`` rows, and ``hand``
+rows a grammar installed (``GRAMMAR`` in the provenance); a base row, a catalogue card, any other hand row, a
+draft and a part are refused, and so are a modify with ``replace``, one giving nothing, and one that changes nothing.
+The result is checked whole as a new construction of that unit and kind is (competition with every live row but the
+one it modifies, the compiler, duplicates, base rivals, the read back with the grammar as it will be, the row it
+modifies gone), and staged as a draft under a new id (the scheme every draft's rows take) with ``provenance["modifies"]``
+and ``replaces`` naming the row: until the confirm everyone else reads the row as it was. It is ``taught``; it keeps
+the row's stated ``score`` and, for an installed row, the grammar's provenance keys (a later install of that grammar
+leaves it, ``kept_taught``). ``confirm`` refuses it when the row is no longer live (another modify took its place), and
+otherwise removes the row with the replace record (its ``successor`` the modify, the row's own records carried along, so
+a body invoking it, or a row it once replaced, runs the new one) and gives the new row the row's standing as it stands
+then (uses, confirmations, choices; the confirm counted), or a fresh one when the form's skeleton changed.
+
 Refused (a ``Draft`` with problems, nothing staged, the engine's grammar as it was): a malformed request; a form with no
 literal holding a letter or digit ("{X}!"); a body clause that does not read completely, reads through no root
 construction, reads through a draft not usable here (someone else's, or another chat's), is refused by the do-support
@@ -71,7 +108,8 @@ a program ``validate`` refuses against the registry (the keyword set plus the ca
 op); a step that runs in the agent (``x-runner: agent``) after an office step that waits for the board's approval, in
 the expanded program (C12: nothing could run it once the board approves); a form the compiler refuses; a form
 competing with a live construction (the same normalised literal skeleton) unless ``replace`` is set, and with a base
-or catalogue (hand) construction even then. A draft EVERY form of which is already live as it is (a live taught or
+or catalogue (hand) construction even then (an installed row, a hand row a grammar installed, is changed by a modify:
+the refusal says so). A draft EVERY form of which is already live as it is (a live taught or
 catalogue root with the same normalised form and the same meaning up to the names of its slots and variables: a
 DUPLICATE, ``_duplicates``) is refused naming those constructions, and nothing
 else is said: teaching it again would change nothing. A draft only some of whose forms are live as they are changes
@@ -97,10 +135,12 @@ either way (``load_store``).
 
 A draft is staged in the store (``status="staged"``, provenance: teacher, chat, draft id, the request, the rows it
 replaces: its same-skeleton rivals, taught with ``replace``) and the engine reloads with drafts loaded below everything
-live (``store.load_store``), so a draft reads only where nothing live does. ``admissible`` tells a caller whether a
+live (``store.load_store``: first, and at a score below any live row's, ``DRAFT_SCORE``, whatever the draft's own score
+and counters say), so a draft reads only where nothing live does. ``admissible`` tells a caller whether a
 reading may be used by a user in a chat: not when it applied someone else's draft. ``confirm`` (the teacher only)
 reads nothing: it makes the draft live bonfire-wide, removes the rows it replaces (as recorded at teach time; recorded
-again in ``provenance["replaced"]``: which row, whose, replaced by whom) and reloads the engine. A draft whose body
+again in ``provenance["replaced"]``: which row, whose, replaced by whom, with each removed row's own records carried
+along, and an installed row's grammar keys given to the row that takes its place) and reloads the engine. A draft whose body
 read through the teacher's own drafts (``provenance["reads_staged"]``) is confirmed only after they are: a confirmed
 construction never carries an unconfirmed one to everyone; and a draft whose skeleton a construction confirmed since
 holds is refused (teach it again with ``replace``).
@@ -112,24 +152,34 @@ import functools
 import hashlib
 import json
 import re
+import time
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, get_args
 
 from memory_kernel.runtime.base import base_specs, reading_guard
 from memory_kernel.runtime.constructions import (
+    CONSUME,
+    FILLER_VARS,
+    RESERVED_FILLER_SLOTS,
+    STAND_IN,
+    TOKEN,
+    VERB,
+    VERB_STAND_IN,
     CompileError,
     CxnSpec,
+    Fills,
     compile_spec,
     normalised_form,
+    normalised_forms,
     normalised_rendering,
     precedence,
     renderings,
     spec_id,
 )
 from memory_kernel.runtime.executor import VALUE_SPECS
-from memory_kernel.runtime.frames import CLAUSE_FILLS, CLAUSE_SPAN, frames_of
+from memory_kernel.runtime.frames import CLAUSE_FILLS, CLAUSE_SPAN, affordance_problems, frames_of
 from memory_kernel.runtime.normalise import marked_lemma, normalise
 from memory_kernel.runtime.policy import DEFAULT_POLICY
 from memory_kernel.runtime.program import (
@@ -143,8 +193,11 @@ from memory_kernel.runtime.program import (
     validate,
 )
 from memory_kernel.runtime.store import (
+    REPLACED,
+    SUCCESSOR,
     ConstructionStore,
     compiled,
+    composes,
     generated_fillers,
     load_store,
     loaded_frame_parts,
@@ -160,7 +213,9 @@ DRAFT = "draft_id"
 FORM = "form"
 REQUEST = "request"
 REPLACES = "replaces"
-REPLACED = "replaced"
+#: ``REPLACED`` (a confirmed row's record of the rows it took the place of) and its key ``SUCCESSOR`` (the row of the
+#: confirmed draft that took that row's place: the modify, else the one with its skeleton; None: none has it) are the
+#: store's (``store.ConstructionStore.successor`` follows them, for teach, the resolver and recorded choices alike)
 CONFIRMED_BY = "confirmed_by"
 #: the staged rows (drafts) the body read through: the draft is confirmed only after they are
 READS_STAGED = "reads_staged"
@@ -168,15 +223,30 @@ READS_STAGED = "reads_staged"
 REPLACEABLE = frozenset({"taught", "mined"})
 #: the kinds of live root a draft's form may duplicate (a taught phrase, a catalogue card)
 DUPLICABLE = frozenset({"taught", "hand"})
-#: a ``replaced`` record's key: the row of the confirmed draft with the replaced row's skeleton (None: none has it)
-SUCCESSOR = "successor"
 #: a confirmed row's ``provenance`` key: what the confirm leaves to look at (rows left invoking a removed construction)
 WARNINGS = "warnings"
+#: a modify's ``provenance`` key: the id of the live row it takes the place of (also in ``replaces``)
+MODIFIES = "modifies"
+#: the install door's provenance keys (``grammar.install``, which takes them from here): the name of the grammar that
+#: installed a row and its file's hash. A modified installed row keeps both, so a later install of that grammar leaves it
+GRAMMAR = "grammar"
+GRAMMAR_HASH = "grammar_sha256"
+#: the kinds a modify may name (a ``hand`` row only when a grammar installed it: ``GRAMMAR`` in its provenance);
+#: a base row, a catalogue card and any other hand row change elsewhere
+MODIFIABLE = frozenset({"taught", "mined", "hand"})
+#: what teach says of an affordance for a filler
+_NO_FILLER_AFFORDANCE = "a filler raises no frame: only a root states an affordance"
 
 #: the reference keyword: a body clause read through a taught construction stores ``["invoke", step, id, *slot args]``
 INVOKE_OP = "invoke"
 #: how deep references may nest (a reference inside an invoked construction is one level deeper)
 INVOKE_DEPTH = 8
+#: how long a filler's read back may search, across every root it is read inside (``_read_inside``): each root's
+#: continued search gets what is left, and no root is read once it has passed; each root's first search is not bounded
+#: by it, so a filler's refused teach may answer later than 2 s (``mk serve``'s teach route says so). Plans wait behind
+#: a teach for ``teach_wait_ms`` (15 s), and one root's read takes about 10 ms on the argument grammar: 2 s leaves room
+#: for some 200 roots and keeps a teach that reads in none short
+READ_BACK_DEADLINE_MS = 2000
 #: the step variable of the reference of body clause ``n`` (a hyphen: no slot referent can take it)
 INVOKE_STEP = "?t-s{n}"
 #: the prefix of an invoked construction's internal variables, per expansion (a hyphen: no slot can take it)
@@ -184,9 +254,20 @@ _INVOKE_FRESH = "?t-i{n}-"
 
 #: the slot kind of a taught slot written ``{Name}`` (filled by the existing np fillers)
 SLOT_FILLS = "np"
-#: the slot kinds a form may write after a colon: ``{Name:np}`` (``{Name}``) and ``{Name:clause}`` (a clause kept as
-#: written: the clause filler, ``store.CLAUSE_FILLER``, fills it)
+#: the slot kinds a root's form may write after a colon: ``{Name:np}`` (``{Name}``) and ``{Name:clause}`` (a clause kept
+#: as written: the clause filler, ``store.CLAUSE_FILLER``, fills it). A filler's form may write any kind: the compiler
+#: judges it
 SLOT_KINDS = frozenset({SLOT_FILLS, CLAUSE_FILLS})
+#: the slot kinds a taught filler may fill (the compiler's)
+_FILLS: dict[str, Fills] = {kind: kind for kind in get_args(Fills)}
+#: what a taught filler's body names its own whole span (its referent ``?x``, between the edges ``?l`` and ``?r`` the
+#: engine binds): a filler's slot may take neither this name nor the edges' (``RESERVED_FILLER_SLOTS``)
+FILLER_SPAN = "X"
+_RESERVED = RESERVED_FILLER_SLOTS | {FILLER_SPAN.lower()}
+#: the op a taught filler names its own span with, by the kind it fills (any other kind: ``name-span``): the op the
+#: generated clause filler and the base verb filler name a slot's words with, so a slot holds the same words whoever
+#: fills it
+_FILLER_SPAN_OP = {CLAUSE_FILLS: CLAUSE_SPAN, VERB: "lemma-span"}
 #: the variable of a taught construction's enclosing procedure (a hyphen: no slot referent can take it)
 PROCEDURE_VAR = "?t-proc"
 #: the plural marker of a reference ("them"): read with its ``window`` (several results), then dropped
@@ -207,6 +288,8 @@ _SLUG = re.compile(r"[^a-z0-9]+")
 _WORDY = re.compile(r"[^\W_]")
 #: stands in for every slot in a skeleton
 _ANY_SLOT = "\x00"
+#: a filler's parts that consume its span: a skeleton stands one placeholder in for them, as for a slot
+_CONSUMING = frozenset({CONSUME, TOKEN})
 
 
 class TeachError(ValueError):
@@ -230,6 +313,18 @@ class TeachRequest:
     chat_id: str
     #: replace the live constructions the forms compete with
     replace: bool = False
+    #: None: the forms are ROOTS (a whole turn), taught exactly as before fillers. A slot kind (``np``, ``name``,
+    #: ``clause``, ``time``, ``verb``): the forms are FILLERS of that kind, each read inside a slot of another
+    #: construction ("{H:clause} even though {D:clause}"). A filler refers to its own whole span, which its body names
+    #: ``{X}``
+    fills: str | None = None
+    #: a root's AFFORDANCE (2.1): the words that raise its frame (``CxnSpec.affordance``). None: derived from the form, as
+    #: before; ``[]``: none (reached by its full form only). A filler raises no frame: it states none
+    affordance: list[str] | None = None
+    #: the id of a LIVE construction this teach MODIFIES (2.1): an empty ``forms`` keeps its form, an empty ``body`` its
+    #: meaning, ``affordance`` None its affordance; at least one of the three is given. The result is checked whole as a
+    #: new construction of the row's unit and kind, staged as a draft, and on ``confirm`` takes the row's place
+    modify: str | None = None
 
 
 @dataclass(frozen=True)
@@ -242,6 +337,8 @@ class Draft:
     #: form text -> the frames (Frame JSON, ``frames.frames_of``) the live grammar reads that form's own renderings as,
     #: before the draft loads ([] when nothing reads them; {} when refused)
     competes: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    #: a filler's form text -> the id of the live root it was read inside (``_read_inside``); {} for a root
+    inside: dict[str, str] = field(default_factory=dict)
 
 
 def admissible(reading: Reading, store: ConstructionStore, chat_id: str, user: str) -> bool:
@@ -264,16 +361,47 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
     problems = _request_problems(req)
     if problems:
         return Draft("", [], problems)
-    parsed = [_parse_form(text) for text in req.forms]
+    # a modify keeps the unit and the kind its row fills; anything else is what the request says
+    target: CxnSpec | None = None
+    if req.modify is not None:
+        target, problems = _target(store, req)
+        if target is None:
+            return Draft("", [], problems)
+        fills = target.fills
+    else:
+        fills = _FILLS[req.fills] if req.fills is not None else None  # checked: a kind the compiler knows
+    if fills is not None and req.affordance is not None:
+        return Draft("", [], [_NO_FILLER_AFFORDANCE])
+    kept_form = target is not None and not req.forms  # the form as stored (its parts as they are, never re-parsed)
+    kept_meaning = target is not None and not req.body
+    if target is not None and kept_form:
+        text, form, written = _kept_form(target)
+        texts, parsed = [text], [(form, written, [])]
+    else:
+        texts = list(req.forms)
+        parsed = [_parse_form(text, fills=fills) for text in texts]
     problems = [p for _, _, form_problems in parsed for p in form_problems]
+    if target is not None and not kept_form:  # an invoking body passes the slots by position: they stay as they are
+        problems += _slot_problems(target, texts[0], parsed[0][0])
     names = {name: name.lower() for _, written, _ in parsed for name in written}  # written name -> slot name
+    if fills is not None:  # X is the filler's own span and l, r its edges: no slot may take their names
+        reserved = RESERVED_FILLER_SLOTS if kept_meaning else _RESERVED  # a kept meaning names no {X}
+        problems += [
+            f"form {text!r}: a filler's slot may not be named {n}: {{{FILLER_SPAN}}} is the filler's own span, and l "
+            "and r are its edges"
+            for text, (_, written, _) in zip(texts, parsed, strict=True)
+            for n in written
+            if n.lower() in reserved
+        ]
     for slot, count in Counter(names.values()).items():
         if count > 1:
             problems.append(f"slots {sorted(n for n in names if names[n] == slot)} differ only in case")
+    # a filler's body may name its own span; no form writes it, and it takes no default
+    spans = {FILLER_SPAN} if fills is not None else set()
     used = {name for entry in req.body for name in _entry_slots(entry)}
-    problems += [f"body slot {{{n}}} is in no form" for n in sorted(used - set(names))]
+    problems += [f"body slot {{{n}}} is in no form" for n in sorted(used - set(names) - spans)]
     problems += [f"default for {{{n}}}, a slot of no form" for n in sorted(set(req.defaults) - set(names))]
-    for text, (_, written, _) in zip(req.forms, parsed, strict=True):
+    for text, (_, written, _) in zip(texts, parsed, strict=True):
         problems += [
             f"form {text!r} leaves out {{{n}}}, which has no default"
             for n in sorted(set(names) - set(written))
@@ -283,42 +411,102 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
         return Draft("", [], problems)
 
     draft_id = _draft_id(req)
-    name = _slug(next((p for p in parsed[0][0] if isinstance(p, str)), "")) or "taught"
+    name = _slug(next((p for p in parsed[0][0] if isinstance(p, str) and p not in _CONSUMING), "")) or "taught"
+    # a modify keeps every stored field it does not name: the row's stated score (an installed row's file score: it is
+    # still that grammar's row), its answer shape (a wh root's answers are narrowed by it) and, unless it states one,
+    # its affordance
+    score = target.score if target is not None else None
+    answer_shape = target.answer_shape if target is not None else None
+    affordance = target.affordance if target is not None and req.affordance is None else req.affordance
     shells = [
-        CxnSpec(id=f"{name}.{draft_id}.{k}", kind="taught", unit="root", form=form, meaning=[["answer", "?_"]])
+        CxnSpec(
+            id=f"{name}.{draft_id}.{k}",
+            kind="taught",
+            unit="root",
+            form=form,
+            meaning=[["answer", "?_"]],
+            answer_shape=answer_shape,
+            score=score,
+            affordance=affordance,
+        )
+        if fills is None
+        else CxnSpec(
+            id=f"{name}.{draft_id}.{k}",
+            kind="taught",
+            unit="filler",
+            fills=fills,
+            form=form,
+            meaning=[["const", "?x", "-"]],
+            answer_shape=answer_shape,
+            score=score,
+        )
         for k, (form, _, _) in enumerate(parsed)
     ]
-    replaces, competing = _competition(store, shells, req.forms, req.replace)
+    modifies = target.id if target is not None else None
+    if fills is None:
+        replaces, competing = _competition(store, shells, texts, req.replace, modifies=modifies)
+    else:
+        # a filler's form the compiler refuses, with its reason (a slot kind it does not know, a verb slot)
+        refused = [
+            f"form {text!r}: {why}" for shell, text in zip(shells, texts, strict=True) if (why := _refusal(shell))
+        ]
+        if refused:
+            return Draft("", [], refused)
+        # it competes with no live row of the store (a rival filler is what entrenchment settles), only with its draft's
+        # other forms and with a base filler of its kind (a taught row would win the base row's tie for every speaker,
+        # and a base row records no choices: teaching never changes the base set); a modify replaces its row only
+        replaces = [modifies] if modifies is not None else []
+        competing = [
+            *(_competition(store, shells, texts, req.replace, against_live=False)[1] if modifies is None else []),
+            *_base_rivals(shells, texts),
+        ]
+        # it is read back inside a live root with a slot it fills: with none, nothing is read at all
+        if not any(_has_slot(root, fills) for root in _live_roots(store)):
+            return Draft("", [], [*competing, f"no live root has a {fills} slot"])
 
     roots = {s.id for s in store.known_specs() if s.unit == "root"}
     effective = Registry({**registry.specs, **VALUE_SPECS})
+    body_names = {**names, FILLER_SPAN: FILLER_SPAN.lower()} if fills is not None else names
     specs: list[CxnSpec] = []
     through: set[str] = set()
     built: list[tuple[CxnSpec, str, list, list[str], list[list[str]]]] = []
-    for shell, text, (form, written, _) in zip(shells, req.forms, parsed, strict=True):
-        meaning, form_problems = _program(
-            store, engine, req, set(written), names, roots, name, through, effective.specs
-        )
+    for shell, text, (form, written, _) in zip(shells, texts, parsed, strict=True):
+        if target is not None and kept_meaning:  # the meaning as stored (a filler's names its span already)
+            meaning, form_problems = [list(p) for p in target.meaning], []
+        else:
+            meaning, form_problems = _program(
+                store, engine, req, set(written) | spans, body_names, roots, name, through, effective.specs
+            )
+            if fills is not None:  # it refers to its own whole span, named as the words in a slot of its kind are
+                meaning = [[_FILLER_SPAN_OP.get(fills, "name-span"), *FILLER_VARS], *meaning]
         problems += [f"form {text!r}: {p}" for p in form_problems]
         if not form_problems:
             built.append((shell, text, form, written, meaning))
     # a draft whose every form is already live as it is changes nothing: it names those constructions and says nothing
-    # else (its same-skeleton competition is the duplicate itself)
-    duplicates = _duplicates(store, [(replace(shell, meaning=meaning), text) for shell, text, _, _, meaning in built])
-    if duplicates and len(duplicates) == len(req.forms):
+    # else (its same-skeleton competition is the duplicate itself); a modify's own row is the one it replaces
+    duplicates = _duplicates(
+        store,
+        [(replace(shell, meaning=meaning), text) for shell, text, _, _, meaning in built],
+        exclude=frozenset(replaces) if modifies is not None else frozenset(),
+    )
+    if duplicates and len(duplicates) == len(texts):
         return Draft("", [], duplicates)
     if competing or problems:
         return Draft("", [], [*competing, *problems])
 
     # The references resolve as they will once the draft is confirmed: a row it replaces resolves to its form of the
-    # same skeleton, so a body that would invoke the draft itself is a cycle, refused here.
-    successors = {
-        old: shell.id
-        for old in replaces
-        if (row := store.get(old)) is not None
-        for shell in shells
-        if _skeleton(row) == _skeleton(shell)
-    }
+    # same skeleton (a modified row to the draft), so a body that would invoke the draft itself is a cycle, refused here.
+    successors = (
+        {modifies: shells[0].id}
+        if modifies is not None
+        else {
+            old: shell.id
+            for old in replaces
+            if (row := store.get(old)) is not None
+            for shell in shells
+            if _skeleton(row) == _skeleton(shell)
+        }
+    )
     resolve = resolver(
         store,
         req.chat_id,
@@ -332,6 +520,8 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
             problems += [f"form {text!r}: {p}" for p in expand_problems]
             continue
         slots = [f"?{names[n]}" for n in written]
+        if fills is not None:  # a filler's span edges are bound by the engine at use time
+            slots += FILLER_VARS[1:]
         try:  # the slots are written at use time by their fillers: stand-in writers for the check
             program = Program.from_meaning([*expanded, *(["const", v, "slot"] for v in slots)])
         except MeaningError as exc:
@@ -352,15 +542,30 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
                 "body": json.loads(json.dumps(req.body)),  # a structured step is copied, never shared
                 "defaults": dict(req.defaults),
                 "replace": req.replace,
+                # a request with none of the later fields is what it was
+                **({"fills": req.fills} if req.fills is not None else {}),
+                **({"affordance": list(req.affordance)} if req.affordance is not None else {}),
+                **({"modify": req.modify} if req.modify is not None else {}),
             },
         }
+        if target is not None:  # an installed row stays its grammar's (``grammar.install`` leaves it: ``kept_taught``)
+            provenance[MODIFIES] = target.id
+            provenance.update({k: target.provenance[k] for k in (GRAMMAR, GRAMMAR_HASH) if k in target.provenance})
         spec = replace(
             shell,
-            form=_with_slot_notes(form, expanded, effective),
+            # a modify of its affordance alone keeps the form exactly as stored (its slots' notes too); a new meaning or
+            # a new form has the notes of what the meaning now binds
+            form=target.form
+            if target is not None and kept_form and kept_meaning
+            else _with_slot_notes(form, expanded, effective),
             meaning=meaning,
             status="staged",
             provenance=provenance,
         )
+        if target is not None and _keeps_standing(
+            target, spec
+        ):  # staged as it will be live (``confirm`` takes it again)
+            spec = replace(spec, standing=target.standing)
         try:
             compile_spec(spec)
         except CompileError as exc:
@@ -369,13 +574,15 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
         specs.append(spec)
     if problems:
         return Draft("", [], problems)
+    if target is not None and _unchanged(target, specs[0]):
+        return Draft("", [], [f"modify {target.id}: nothing changes (its form, meaning and affordance are as stored)"])
 
     # What the live grammar reads the forms' own uses as now (the engine still holds the store's grammar), then the
-    # draft as it would read once confirmed: its own renderings must read through it (the self-read). The engine's
-    # grammar is restored (or gains the staged draft) whatever happens.
+    # draft as it would read once confirmed: its own renderings must read through it, or a filler must read inside a
+    # live root (the self-read). The engine's grammar is restored (or gains the staged draft) whatever happens.
     competes = _competes(store, engine, specs, registry, req.chat_id, req.teacher)
     try:
-        problems = _self_read(store, engine, specs, replaces)
+        problems, inside = _self_read(store, engine, specs, replaces, req.chat_id, req.teacher)
         if problems:
             return Draft("", [], problems)
         extra: dict[str, Any] = {READS_STAGED: sorted(through)} if through else {}
@@ -385,7 +592,7 @@ def teach(store: ConstructionStore, engine: RuntimeEngine, req: TeachRequest, *,
         store.update(puts=specs)
     finally:
         load_store(store, engine)
-    return Draft(draft_id, specs, [], competes)
+    return Draft(draft_id, specs, [], competes, inside)
 
 
 def confirm(store: ConstructionStore, engine: RuntimeEngine, draft_id: str, by: str) -> list[CxnSpec]:
@@ -411,14 +618,26 @@ def confirm(store: ConstructionStore, engine: RuntimeEngine, draft_id: str, by: 
             )
         replaces = sorted({r for s in drafts for r in s.provenance.get(REPLACES, [])})
         gone = {r for r in replaces if (row := store.get(r)) is not None and row.status == "live"}
+        # a modified row takes one successor: a modify whose row went (another modify of it confirmed since) is refused
+        modified = sorted({str(m) for s in drafts if (m := s.provenance.get(MODIFIES)) is not None})
+        for cxn_id in modified:
+            if cxn_id not in gone:
+                after = store.live_successor(cxn_id)
+                tail = f": it was replaced by {after} (modify that one)" if after is not None else ""
+                raise TeachError(f"draft {draft_id} modifies {cxn_id}, which is no longer live{tail}")
         for spec in drafts:
+            if spec.unit != "root":  # a filler's rivals are entrenchment's to settle; a duplicate live since is refused
+                twins = _duplicates(store, [(spec, str(spec.provenance.get(FORM, spec.id)))], exclude=frozenset(gone))
+                if twins:
+                    raise TeachError(f"{spec.id}: {twins[0]} (confirmed since it was taught)")
+                continue
             rivals = [r.id for r in _live_roots(store) if r.id not in gone and _same_skeleton(r, spec)]
             if rivals:
                 raise TeachError(f"{spec.id} now competes with live {rivals}: teach it again with replace")
         replaced = [
             spec
             for spec in (store.get(r) for r in replaces)
-            if spec is not None and spec.status == "live" and spec.kind in REPLACEABLE
+            if spec is not None and spec.status == "live" and (spec.kind in REPLACEABLE or spec.id in modified)
         ]
         record = [
             {
@@ -426,20 +645,34 @@ def confirm(store: ConstructionStore, engine: RuntimeEngine, draft_id: str, by: 
                 "kind": r.kind,
                 "teacher": r.provenance.get(TEACHER),
                 "by": by,
-                SUCCESSOR: next((d.id for d in drafts if _skeleton(d) == _skeleton(r)), None),
+                SUCCESSOR: _successor_among(drafts, r),
             }
             for r in replaced
         ]
+        # a replaced row's own records go along (a modify's and a replace's alike), so a body invoking a row it once
+        # replaced still finds its successor (``resolver``) and a later install still knows the grammar's row
+        # (``grammar.install``: ``kept_taught``); a row with none of its own is recorded as before
+        carried = [rec for r in replaced for rec in r.provenance.get(REPLACED, []) if isinstance(rec, Mapping)]
         warnings = _orphan_warnings(store, record, {s.id for s in drafts})
+        was = {r.id: r for r in replaced}
+        # the row taking the place of a grammar's row is that grammar's from then on (a later install leaves it)
+        heirs = {rec[SUCCESSOR]: r for rec, r in zip(record, replaced, strict=True) if r.provenance.get(GRAMMAR)}
         live = []
         for spec in drafts:
             provenance = {**spec.provenance, CONFIRMED_BY: by}
             provenance.pop(WARNINGS, None)
             if warnings:
                 provenance[WARNINGS] = warnings
-            if record:
-                provenance[REPLACED] = record
-            standing = replace(spec.standing, confirmed=spec.standing.confirmed + 1)
+            if record or carried:
+                provenance[REPLACED] = [*record, *carried]
+            heir = heirs.get(spec.id)
+            if heir is not None:
+                provenance.update({k: heir.provenance[k] for k in (GRAMMAR, GRAMMAR_HASH) if k in heir.provenance})
+            # a modify keeps its row's standing as the row stands now, unless the form's skeleton changed
+            modifies = spec.provenance.get(MODIFIES)
+            old = was.get(modifies) if isinstance(modifies, str) else None
+            base = old.standing if old is not None and _keeps_standing(old, spec) else spec.standing
+            standing = replace(base, confirmed=base.confirmed + 1)
             live.append(replace(spec, status="live", standing=standing, provenance=provenance))
         store.update(puts=live, removes=sorted(r.id for r in replaced), replacing_taught=True)
         load_store(store, engine)
@@ -486,10 +719,25 @@ def _request_problems(req: TeachRequest) -> list[str]:
     for label, value in (("teacher", req.teacher), ("chat_id", req.chat_id)):
         if not isinstance(value, str) or not value.strip():
             problems.append(f"{label} must be a non-empty string")
+    if req.fills is not None and (not isinstance(req.fills, str) or req.fills not in _FILLS):
+        problems.append(f"fills is the slot kind a filler fills, one of {sorted(_FILLS)}; got {req.fills!r}")
+    modifying = req.modify is not None
+    if modifying and (not isinstance(req.modify, str) or not req.modify.strip()):
+        problems.append(f"modify names a live construction by its id (a non-empty string); got {req.modify!r}")
+    if modifying and req.replace:
+        problems.append("modify takes the place of the construction it names: teach it without replace")
+    elif req.fills is not None and req.replace:
+        problems.append(
+            "a filler cannot replace: it competes with no live row, so there is none for it to take the place of "
+            "(teach it without replace)"
+        )
+    if req.affordance is not None:
+        problems += affordance_problems(req.affordance)
     for label, items in (("forms", req.forms), ("body", req.body)):
-        if not isinstance(items, Sequence) or isinstance(items, str) or not items:
+        # a modify may leave either out: what it leaves out is kept as stored
+        if not isinstance(items, Sequence) or isinstance(items, str) or (not items and not modifying):
             of = "strings" if label == "forms" else "clauses or calls"
-            problems.append(f"{label} must be a non-empty list of {of}")
+            problems.append(f"{label} must be a {'' if modifying else 'non-empty '}list of {of}")
         elif label == "body":
             for entry in items:
                 if isinstance(entry, Mapping):
@@ -502,12 +750,123 @@ def _request_problems(req: TeachRequest) -> list[str]:
         isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in req.defaults.items()
     ):
         problems.append("defaults must map slot names to non-empty texts")
+    listed = all(isinstance(v, Sequence) and not isinstance(v, str) for v in (req.forms, req.body))
+    if modifying and listed and len(req.forms) > 1:
+        problems.append("a modify changes one construction: give one form, or none to keep its form")
+    if modifying and listed and not req.forms and not req.body and req.affordance is None:
+        problems.append(
+            "a modify gives nothing to change: give a form, a body or an affordance (an empty list of words is none)"
+        )
     return problems
 
 
-def _parse_form(text: str) -> tuple[list, list[str], list[str]]:
+def _target(store: ConstructionStore, req: TeachRequest) -> tuple[CxnSpec | None, list[str]]:
+    """The live row ``req`` modifies, or None and the problem: a base row, a catalogue card, a hand row no grammar
+    installed (each changes elsewhere), a draft, a part, a row gone (its successor named) or never stored, or a
+    ``fills`` that would make it another unit."""
+    cxn_id = str(req.modify)
+    where = f"modify {cxn_id}"
+    row = store.get(cxn_id)
+    if row is None:
+        if any(s.id == cxn_id for s in base_specs()):
+            return None, [f"{where}: a base construction changes only with a kernel release, never by teaching"]
+        if any(s.id == cxn_id for s in store.live()):  # an attached catalogue card: live here, never stored
+            return None, [f"{where}: a catalogue card changes when its catalogue is installed again, never by teaching"]
+        after = store.live_successor(cxn_id)
+        if after is not None:
+            return None, [f"{where}: it was replaced by {after} (modify that one)"]
+        return None, [f"{where}: no stored construction has this id"]
+    if row.status != "live":
+        return None, [
+            f"{where}: it is a draft staged by {row.provenance.get(TEACHER)!r}, not a live construction (a draft changes "
+            "when its teacher teaches it again)"
+        ]
+    if row.unit not in ("root", "filler"):
+        return None, [f"{where}: it is a {row.unit}; teach makes and modifies roots and fillers"]
+    if row.kind not in MODIFIABLE or (row.kind == "hand" and not row.provenance.get(GRAMMAR)):
+        return None, [f"{where}: a hand row that no grammar installed changes where it was written, never by teaching"]
+    if req.fills is not None and req.fills != row.fills:
+        what = "a root" if row.fills is None else f"a filler of {row.fills}"
+        return None, [f"{where}: it is {what}; a modify keeps what it is (leave fills out)"]
+    return row, []
+
+
+def _bare(form: Sequence[Any]) -> list[Any]:
+    """A form's parts without the slots' notes (``_with_slot_notes``): its literals and its slots' names and kinds."""
+    return [{"slot": p["slot"], "fills": p["fills"]} if isinstance(p, dict) else p for p in form]
+
+
+def _kept_form(target: CxnSpec) -> tuple[str, list[Any], list[str]]:
+    """A modify that keeps ``target``'s form: the text it is named by, its parts (notes left out) and the slot names a
+    new body writes. A taught row's is the text it was taught with; any other row's is written from its parts, each slot
+    in capitals (``{H:clause}`` for slot ``h``; ``{Y}`` for an np slot), a consumed span as its pattern."""
+    bare = _bare(target.form)
+    taught = target.provenance.get(FORM) if target.kind == "taught" else None
+    if isinstance(taught, str):
+        parts, written, problems = _parse_form(taught, fills=target.fills)
+        if not problems and parts == bare:
+            return taught, bare, written
+    pieces: list[str] = []
+    written = []
+    for part in bare:
+        if not isinstance(part, dict):
+            pieces.append(str(part))
+            continue
+        slot = part["slot"].upper()
+        written.append(slot)
+        pieces.append(f"{{{slot}}}" if part["fills"] == SLOT_FILLS else f"{{{slot}:{part['fills']}}}")
+    return " ".join(pieces), bare, written
+
+
+def _slot_problems(target: CxnSpec, text: str, form: Sequence[Any]) -> list[str]:
+    """A modify's new form must hold ``target``'s slots, by name and in order: a body that invokes the row passes them
+    by position (``expand``), and its kept meaning names them."""
+    old = _slots(target)
+    new = [p["slot"] for p in form if isinstance(p, dict)]
+    if new == old:
+        return []
+    return [
+        f"form {text!r}: a modify keeps the slots of {target.id} in their order ({', '.join(old) or 'none'}); this "
+        f"form has ({', '.join(new) or 'none'})"
+    ]
+
+
+def _form_skeleton(spec: CxnSpec) -> tuple[str, ...]:
+    """A root's or a filler's skeleton as its own unit normalises it: its normalised literals, every slot and every
+    consumed span (``CONSUME``, ``TOKEN``) one placeholder. ``CompileError`` for a form that does not normalise."""
+    return tuple(_ANY_SLOT if isinstance(p, dict) or p in _CONSUMING else p for p in normalised_form(spec))
+
+
+def _keeps_standing(old: CxnSpec, new: CxnSpec) -> bool:
+    """Whether a modify keeps the old row's standing: the new form's skeleton is the old one's (a form as stored, or
+    one that normalises to the same literals around the same slots); a form that does not normalise is a new one."""
+    if _bare(old.form) == _bare(new.form):
+        return True
+    try:
+        return _form_skeleton(old) == _form_skeleton(new)
+    except CompileError:
+        return False
+
+
+def _unchanged(old: CxnSpec, new: CxnSpec) -> bool:
+    """A modify whose result is its row as stored: the same form, the same meaning up to names, the same affordance."""
+    return (
+        _bare(old.form) == _bare(new.form) and _canonical(old) == _canonical(new) and old.affordance == new.affordance
+    )
+
+
+def _successor_among(drafts: Sequence[CxnSpec], row: CxnSpec) -> str | None:
+    """The draft that takes ``row``'s place: the one that modifies it, else the one with its skeleton (a replace)."""
+    modifying = next((d.id for d in drafts if d.provenance.get(MODIFIES) == row.id), None)
+    if modifying is not None:
+        return modifying
+    return next((d.id for d in drafts if _skeleton(d) == _skeleton(row)), None)
+
+
+def _parse_form(text: str, *, fills: str | None = None) -> tuple[list[Any], list[str], list[str]]:
     """A form's ``CxnSpec`` parts (literals stripped, ``{Name}`` and ``{Name:np}`` → an np slot, ``{Name:clause}`` → a
-    clause slot; any other kind after the colon is a problem), its written slot names, problems."""
+    clause slot; for a root, any other kind after the colon is a problem), its written slot names, problems. A
+    filler's form (``fills`` set) writes any kind after the colon: the compiler judges it (``_refusal``)."""
     parts: list = []
     written: list[str] = []
     problems: list[str] = []
@@ -525,7 +884,7 @@ def _parse_form(text: str) -> tuple[list, list[str], list[str]]:
         name, kind = name.strip(), kind.strip()
         if not _SLOT_NAME.fullmatch(name):
             problems.append(f"form {text!r}: slot {{{inside}}} must be a name ({_SLOT_NAME.pattern})")
-        elif colon and kind not in SLOT_KINDS:
+        elif colon and kind not in SLOT_KINDS and fills is None:
             problems.append(
                 f"form {text!r}: slot {{{inside}}} has an unknown kind {kind!r}: a slot is {{Name}}, {{Name:np}} or "
                 "{Name:clause}"
@@ -594,8 +953,16 @@ def _entry_slots(entry: str | Mapping[str, Any]) -> list[str]:
 
 
 def _draft_id(req: TeachRequest) -> str:
+    keyed: list[Any] = [req.teacher, req.chat_id, list(req.forms), list(req.body), sorted(req.defaults.items())]
+    keyed.append(req.replace)
+    if req.fills is not None:  # a root's draft id is what it was before fillers
+        keyed.append(req.fills)
+    if req.affordance is not None:  # a request with none of the 2.1 fields keys as it did
+        keyed.append({"affordance": list(req.affordance)})
+    if req.modify is not None:
+        keyed.append({"modify": req.modify})
     key = json.dumps(
-        [req.teacher, req.chat_id, list(req.forms), list(req.body), sorted(req.defaults.items()), req.replace],
+        keyed,
         ensure_ascii=False,
         sort_keys=True,  # a structured step's keys in any order are one step (a body of clauses has no keys)
     )
@@ -636,10 +1003,19 @@ def _live_roots(store: ConstructionStore) -> list[CxnSpec]:
 
 
 def _competition(
-    store: ConstructionStore, shells: list[CxnSpec], texts: list[str], replacing: bool
+    store: ConstructionStore,
+    shells: list[CxnSpec],
+    texts: list[str],
+    replacing: bool,
+    *,
+    against_live: bool = True,
+    modifies: str | None = None,
 ) -> tuple[list[str], list[str]]:
     """The live store rows the forms replace, and problems: a form the compiler cannot normalise; two forms of the
-    draft with one skeleton; a form competing with a base root (always) or a live row (unless ``replacing``)."""
+    draft with one skeleton; a form competing with a base root (always) or a live row (unless ``replacing``). With
+    ``against_live`` False (a filler's forms) no live row is compared: the forms replace nothing. A modify (``modifies``,
+    the live row it names) replaces that row, never compared, and competes with every other one (it takes no other's
+    place)."""
     problems: list[str] = []
     skeletons: dict[tuple[str, ...], str] = {}
     for shell, text in zip(shells, texts, strict=True):
@@ -651,10 +1027,12 @@ def _competition(
         if skeleton in skeletons:
             problems.append(f"forms {skeletons[skeleton]!r} and {text!r} have one skeleton: they would compete")
         skeletons.setdefault(skeleton, text)
-    replaces: list[str] = []
+    replaces: list[str] = [modifies] if modifies is not None else []
+    if not against_live:
+        return replaces, problems
     shapes = {_shape(shell) for shell in shells}
     for live in _live_roots(store):
-        text = skeletons.get(_skeleton(live)) if _shape(live) in shapes else None
+        text = skeletons.get(_skeleton(live)) if _shape(live) in shapes and live.id != modifies else None
         if text is None:
             continue
         if live.kind == "base":
@@ -662,10 +1040,20 @@ def _competition(
                 f"form {text!r} competes with the base construction {live.id}: base constructions change only with "
                 "a kernel release, never by teaching"
             )
+        elif live.kind not in REPLACEABLE and GRAMMAR in live.provenance:
+            problems.append(
+                f"form {text!r} competes with the installed row {live.id} of grammar {live.provenance[GRAMMAR]!r}: an "
+                f"installed row is changed by a modify, never replaced (modify {live.id})"
+            )
         elif live.kind not in REPLACEABLE:
             problems.append(
                 f"form {text!r} competes with the catalogue construction {live.id}: a catalogue row is never replaced "
                 "by chat teaching"
+            )
+        elif modifies is not None:
+            problems.append(
+                f"form {text!r} competes with the live construction {live.id}: a modify takes the place of {modifies} "
+                "only"
             )
         elif not replacing:
             problems.append(f"form {text!r} competes with the live construction {live.id}: teach it with replace")
@@ -674,16 +1062,26 @@ def _competition(
     return sorted(replaces), problems
 
 
-def _duplicates(store: ConstructionStore, drafted: Sequence[tuple[CxnSpec, str]]) -> list[str]:
-    """One problem per drafted form (spec, its text) that is already live as it is: a live taught or catalogue root with
-    the same meaning up to the names of its slots and variables (``_canonical``), the same slot kinds in form order
-    (a clause twin of an np form changes what its slot reads: it competes, it is no duplicate) and the same normalised
-    form (the shape, then the skeleton: only a row whose meaning matches is normalised)."""
-    rows = [(row, _canonical(row)) for row in store.live() if row.unit == "root" and row.kind in DUPLICABLE]
+def _duplicates(
+    store: ConstructionStore, drafted: Sequence[tuple[CxnSpec, str]], *, exclude: frozenset[str] = frozenset()
+) -> list[str]:
+    """One problem per drafted form (spec, its text) that is already live as it is: a live taught or catalogue (or
+    installed) row of the same unit (and, for a filler, the same kind) with the same meaning up to the names of its
+    slots and variables (``_canonical``), the same slot kinds in form order (a clause twin of an np form changes what
+    its slot reads: it competes, it is no duplicate) and the same normalised form (the shape, then the skeleton: only
+    a row whose meaning matches is normalised). Rows in ``exclude`` (the row a modify takes the place of) are none."""
+    units = {(spec.unit, spec.fills) for spec, _ in drafted}
+    rows = [
+        (row, _canonical(row))
+        for row in store.live()
+        if (row.unit, row.fills) in units and row.kind in DUPLICABLE and row.id not in exclude
+    ]
     out: list[str] = []
     for spec, text in drafted:
         meaning = _canonical(spec)
         for row, theirs in rows:
+            if (row.unit, row.fills) != (spec.unit, spec.fills):
+                continue
             try:
                 same = theirs == meaning and _slot_kinds(row) == _slot_kinds(spec) and _same_skeleton(row, spec)
             except CompileError:  # a form that does not normalise duplicates nothing (competition says why)
@@ -697,6 +1095,54 @@ def _duplicates(store: ConstructionStore, drafted: Sequence[tuple[CxnSpec, str]]
 def _slot_kinds(spec: CxnSpec) -> tuple[str | None, ...]:
     """The kind of each slot of a form, in form order."""
     return tuple(p.get("fills") for p in spec.form if isinstance(p, dict))
+
+
+def _has_slot(spec: CxnSpec, kind: str) -> bool:
+    return kind in _slot_kinds(spec)
+
+
+def _base_rivals(shells: Sequence[CxnSpec], texts: Sequence[str]) -> list[str]:
+    """One problem per filler form with the skeleton of a base filler of its kind (``_form_skeleton``: ``np-it`` for
+    "it", ``np-my`` for "my {Y}", ``np-the`` for "the {Y}": a slot stands where the base row consumes its span), worded
+    as a root's competition with a base root is. A base filler that only consumes (``np-bare``, the verb filler) has
+    a skeleton of no literal, which no taught form has."""
+    problems: list[str] = []
+    for shell, text in zip(shells, texts, strict=True):
+        try:
+            mine = _form_skeleton(shell)
+        except CompileError:  # the compiler's refusal is said already (``_refusal``)
+            continue
+        for row_id, fills, skeleton in _base_filler_skeletons():
+            if fills == shell.fills and skeleton == mine:
+                problems.append(
+                    f"form {text!r} competes with the base construction {row_id}: base constructions change only with "
+                    "a kernel release, never by teaching"
+                )
+    return problems
+
+
+@functools.cache
+def _base_filler_skeletons() -> tuple[tuple[str, str | None, tuple[str, ...]], ...]:
+    """Each base filler's (id, kind, ``_form_skeleton``), in the base set's order (the base set ships with the kernel)."""
+    out: list[tuple[str, str | None, tuple[str, ...]]] = []
+    for row in base_specs():
+        if row.unit != "filler":
+            continue
+        try:
+            out.append((row.id, row.fills, _form_skeleton(row)))
+        except CompileError:
+            continue
+    return tuple(out)
+
+
+def _refusal(shell: CxnSpec) -> str | None:
+    """The compiler's reason for refusing a filler's form (``constructions.normalised_forms`` parses and normalises it
+    as the compiler does), else None."""
+    try:
+        normalised_forms(shell)
+    except CompileError as exc:
+        return str(exc)
+    return None
 
 
 def _canonical(spec: CxnSpec) -> tuple[tuple[str, ...], ...]:
@@ -741,13 +1187,22 @@ def _competes(
 
 
 def _self_read(
-    store: ConstructionStore, engine: RuntimeEngine, specs: Sequence[CxnSpec], replaces: Sequence[str]
-) -> list[str]:
-    """Load the grammar as it will stand once the draft is confirmed (the other drafts, the frame parts and the
-    generated fillers, as ``load_store`` loads them, the live rows but those the draft replaces, then the draft's specs
+    store: ConstructionStore,
+    engine: RuntimeEngine,
+    specs: Sequence[CxnSpec],
+    replaces: Sequence[str],
+    chat_id: str,
+    teacher: str,
+) -> tuple[list[str], dict[str, str]]:
+    """Load the grammar as it will stand once the draft is confirmed (the other drafts, at ``DRAFT_SCORE``, the frame
+    parts and the generated fillers, as ``load_store`` loads them, the live rows but those the draft replaces, then the
+    draft's specs
     live and confirmed ON TOP of everything, so they apply wherever they can) and read each form's own renderings
-    (bare, and with a determiner for an np slot): each must read completely through its spec. Returns the problems.
-    The engine is left holding that grammar (the caller restores it)."""
+    (bare, and with a determiner for an np slot): each must read completely through its spec. It is searched as that
+    grammar will be: composing when its live rows, the draft's included, compose (``store.load_store``). A filler is
+    read inside a live root instead (``_read_inside``), every form of the draft within one ``READ_BACK_DEADLINE_MS``.
+    Returns the problems and, per filler form, the root it read inside. The engine is left holding that grammar (the
+    caller restores it)."""
     mine = {s.id for s in specs}
     live = [s for s in store.load_order() if s.id not in replaces and s.id not in mine]
     confirmed = sorted(
@@ -756,17 +1211,101 @@ def _self_read(
     )
     others = sorted((s for s in store.staged() if s.id not in mine), key=precedence)
     fillers = generated_fillers([*others, *live, *confirmed])
-    order = [*others, *loaded_frame_parts([*live, *confirmed]), *fillers, *live, *confirmed]
-    engine.load([cxn for spec in order for cxn in compiled(spec)])
+    order = [*loaded_frame_parts([*live, *confirmed]), *fillers, *live, *confirmed]
+    cxns = [cxn for spec in others for cxn in compiled(spec, draft=True)]  # below every live row, as ``load_store``
+    engine.load([*cxns, *(cxn for spec in order for cxn in compiled(spec))], slot_order=composes([*live, *confirmed]))
     problems: list[str] = []
+    inside: dict[str, str] = {}
+    ends = time.monotonic() + READ_BACK_DEADLINE_MS / 1000
     for spec in specs:
+        if spec.unit == "filler" and spec.fills is not None:
+            # the bonfire's own roots first, then the base set's, each in load order: a filler made for the bonfire's
+            # grammar is read there before the deadline goes on base roots, and the draft names that root
+            roots = [s for s in live if s.unit == "root" and _has_slot(s, spec.fills)]
+            roots = [*(s for s in roots if s.kind != "base"), *(s for s in roots if s.kind == "base")]
+            root, problem = _read_inside(store, engine, spec, roots, chat_id, teacher, ends)
+            if root is not None:
+                inside[str(spec.provenance.get(FORM, spec.id))] = root
+            if problem is not None:
+                problems.append(problem)
+            continue
         for rendering in renderings(spec):
             reading = engine.comprehend(normalised_rendering(rendering).text)
             if reading is None or not reading.complete or spec.id not in {spec_id(a) for a in reading.applied}:
                 applied = None if reading is None else list(reading.applied)
                 text = spec.provenance.get(FORM, spec.id)
                 problems.append(f"form {text!r} does not read its own use {rendering!r} (read: {applied})")
-    return problems
+    return problems, inside
+
+
+def _read_inside(
+    store: ConstructionStore,
+    engine: RuntimeEngine,
+    spec: CxnSpec,
+    roots: Sequence[CxnSpec],
+    chat_id: str,
+    teacher: str,
+    ends: float,
+) -> tuple[str | None, str | None]:
+    """A filler's read back: its own rendering (``renderings``: its slots as their stand-ins) placed in a live root's
+    first slot of its kind (``_placed``), in ``roots``' order (``_self_read``: the bonfire's own roots, then the base
+    set's, each in load order), until one reads it: every complete
+    analysis of that text (``RuntimeEngine.comprehend_every``, under ``Runtime.alternatives``' cap and node cap) is
+    searched, and the root passes when one that this teacher may use in this chat (``admissible``) applies both the
+    root and the filler (at a neutral score a draft need not be the first reading). The read back ends at ``ends``
+    (``time.monotonic``: ``READ_BACK_DEADLINE_MS`` for the whole draft): each root's continued search gets what is left
+    of it (at most ``Runtime.alternatives``' deadline), and a root reached after it is not read. Returns (the root it
+    read inside, None), or (None, the problem): what each root read, and where the deadline or a bound cut the search
+    short before any reading applied the filler."""
+    from memory_kernel.runtime.api import (  # the runtime imports this module
+        ALTERNATIVES_DEADLINE_MS,
+        ALTERNATIVES_NODE_CAP,
+        ALTERNATIVES_RAW,
+    )
+
+    kind = str(spec.fills)
+    own = renderings(spec)[0]  # a filler is rendered bare only
+    tried: list[str] = []
+    for k, root in enumerate(roots):
+        left = int((ends - time.monotonic()) * 1000)
+        if left < 1:
+            unread = ", ".join(r.id for r in roots[k:])
+            tried.append(f"the read back's {READ_BACK_DEADLINE_MS} ms cut it short before {unread} could be read")
+            break
+        text = _placed(root, kind, own)
+        every, cut = engine.comprehend_every(
+            normalise(text).text,
+            cap=ALTERNATIVES_RAW,
+            node_cap=ALTERNATIVES_NODE_CAP,
+            deadline_ms=min(ALTERNATIVES_DEADLINE_MS, left),
+        )
+        for reading in every:
+            applied = {spec_id(name) for name in reading.applied}
+            if reading.complete and {root.id, spec.id} <= applied and admissible(reading, store, chat_id, teacher):
+                return root.id, None
+        if cut:
+            why = "its search was cut short before any reading applied it"
+        else:
+            why = f"no reading applies it (read: {[list(r.applied) for r in every[:1]]})"
+        tried.append(f"{root.id} as {text!r}: {why}")
+    form = spec.provenance.get(FORM, spec.id)
+    return None, f"form {form!r} reads inside no live root with a {kind} slot ({'; '.join(tried)})"
+
+
+def _placed(root: CxnSpec, kind: str, text: str) -> str:
+    """``root``'s form rendered as ``renderings`` renders it bare (literals as authored, a verb slot as
+    ``VERB_STAND_IN``, any other slot as ``STAND_IN``), its first slot of ``kind`` holding ``text``."""
+    pieces: list[str] = []
+    placed = False
+    for part in root.form:
+        if isinstance(part, str):
+            pieces.append(part)
+        elif not placed and part.get("fills") == kind:
+            pieces.append(text)
+            placed = True
+        else:
+            pieces.append(VERB_STAND_IN if part.get("fills") == VERB else STAND_IN)
+    return " ".join(pieces)
 
 
 # -- the program ------------------------------------------------------------------------------------------------------
@@ -1378,22 +1917,13 @@ def resolver(
                 if row.kind != "taught" or row.unit != "root" or not usable:
                     return None, gone
                 return row, None
-            after = _successor(store, at)
+            after = store.successor(at)
             if after is None:
                 return None, gone
             at = after
         return None, gone
 
     return resolve
-
-
-def _successor(store: ConstructionStore, cxn_id: str) -> str | None:
-    """The live row a confirmed replace put in the place of ``cxn_id`` (its ``replaced`` record), else None."""
-    for row in store.live():
-        for record in row.provenance.get(REPLACED, []):
-            if isinstance(record, Mapping) and record.get("id") == cxn_id:
-                return record.get(SUCCESSOR)
-    return None
 
 
 def expand(
@@ -1451,6 +1981,10 @@ __all__ = [
     "INVOKE_DEPTH",
     "INVOKE_OP",
     "DRAFT",
+    "GRAMMAR",
+    "GRAMMAR_HASH",
+    "MODIFIABLE",
+    "MODIFIES",
     "READS_STAGED",
     "REPLACEABLE",
     "REPLACED",

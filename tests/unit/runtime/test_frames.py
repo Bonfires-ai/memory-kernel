@@ -432,6 +432,163 @@ def test_phrase_with_no_verb_or_noun_has_no_part(engine, tmp_path):
     assert _plan(runtime, "please").frames == []
 
 
+# -- a stated affordance (2.1, spec part 3) ---------------------------------------------------------------------------
+
+
+def test_a_stated_affordance_is_one_part_per_word():
+    """``affordance`` states the words that raise a root's frame: one part per word, with the meaning and the name a
+    derived part has, and none of the derived one; ``[]`` is no part at all; None (unstated) is derived as before."""
+    parts = frame_parts([replace(TRIAGE, affordance=["fees", "Costs"])])
+    assert [(p.id, p.kind, p.unit, p.form) for p in parts] == [
+        (f"frame.{TRIAGE.id}.fees", "taught", "part", ["fees"]),
+        (f"frame.{TRIAGE.id}.costs", "taught", "part", ["costs"]),
+    ]
+    assert all(p.meaning == [["frame", "?frame", TRIAGE.id]] and p.status == "live" for p in parts)
+    assert frame_parts([replace(TRIAGE, affordance=[])]) == []
+    assert [p.id for p in frame_parts([TRIAGE])] == [f"frame.{TRIAGE.id}.triage"]
+    # a card's stated words name its tool's frame, as its derived part does
+    look = next(c for c in OFFICE.cards if c.id == "card.look.0")
+    assert [(p.id, p.meaning) for p in frame_parts([replace(look, affordance=["inbox"])])] == [
+        ("frame.look.inbox", [["frame", "?frame", "look"]])
+    ]
+    # a draft affords nothing until it is confirmed, whatever it states
+    assert frame_parts([replace(TRIAGE, affordance=["fees"], status="staged")]) == []
+
+
+def test_an_unstated_affordance_is_stored_as_before():
+    """A row with no stated affordance has no ``affordance`` key: it is stored byte for byte as before. A stated one
+    (``[]`` included) is kept on the row and read back."""
+    assert "affordance" not in TRIAGE.to_json() and TRIAGE.affordance is None
+    assert CxnSpec.from_json(TRIAGE.to_json()) == TRIAGE
+    for words in ([], ["fees", "costs"]):
+        row = replace(TRIAGE, affordance=words).to_json()
+        assert row["affordance"] == words and CxnSpec.from_json(row).affordance == words
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        {"unit": "filler", "fills": "np", "form": ["that crew"], "meaning": [["name-span", "?x", "?l", "?r"]]},
+        {"unit": "part", "form": ["crew"], "meaning": [["frame", "?frame", "crew"]]},
+        {"unit": "root", "form": ["crew"], "meaning": [["const", "?x", "y"]], "affordance": "crew"},
+        {"unit": "root", "form": ["crew"], "meaning": [["const", "?x", "y"]], "affordance": ["crew", 3]},
+    ],
+)
+def test_only_a_root_states_an_affordance_as_a_list_of_words(spec):
+    from memory_kernel.runtime.constructions import CompileError
+
+    row = {"id": "crew.t1", "kind": "taught", "status": "live", "affordance": ["crew"], **spec}
+    refused = "only a root states an affordance|affordance must be a list of words"
+    with pytest.raises(CompileError, match=refused):
+        CxnSpec.from_json(row)
+    with pytest.raises(CompileError, match=refused):  # the same check on a row built in code
+        CxnSpec(**_fields(row), affordance=row["affordance"])  # pyright: ignore[reportArgumentType]
+
+
+def _fields(row: dict[str, Any]) -> dict[str, Any]:
+    """A row's JSON as ``CxnSpec`` keyword arguments (no affordance)."""
+    spec = CxnSpec.from_json({k: v for k, v in row.items() if k != "affordance"})
+    return {f: getattr(spec, f) for f in ("id", "kind", "form", "meaning", "status", "unit", "fills")}
+
+
+@pytest.mark.parametrize(
+    ("words", "problem"),
+    [
+        (["fees", "late costs"], "affordance word 'late costs' holds a space: each word is an entry of its own"),
+        ([""], "affordance holds an empty word"),
+        (["fees", "Fees"], "affordance words 'fees' and 'Fees' are one word"),
+        (["don't"], 'affordance word "don\'t" is not one word: the normaliser reads it as 2 tokens'),
+        (["--"], "affordance word '--' holds no letter or digit from a to z or 0 to 9 (a frame part is named by it)"),
+        ("fees", "affordance is a list of words, or null to derive it from the form; got 'fees'"),
+    ],
+)
+def test_an_affordance_word_is_one_token_the_compiler_takes(words, problem):
+    from memory_kernel.runtime.frames import affordance_problems
+
+    found = affordance_problems(words)
+    assert len(found) == 1 and found[0].startswith(problem), found
+    assert affordance_problems(["fees", "costs"]) == [] and affordance_problems([]) == []
+
+
+@pytest.mark.needs_fcg
+def test_a_stated_affordance_raises_the_frame_on_its_words(engine, tmp_path):
+    """The stated words raise the phrase's frame wherever they occur ("what about costs", "fees again"), its roles
+    open, and its verb no longer does; ``[]`` raises nothing on the verb; an unstated affordance raises the verb's frame
+    as before. The phrase still reads its own sentences completely."""
+    roles = {"x": None, "r": None}
+    stated = _runtime(engine, tmp_path, replace(TRIAGE, affordance=["fees", "costs"]))
+    for text, word in (("what about costs", "costs"), ("fees again", "fees")):
+        plan = _plan(stated, text)
+        assert plan.frames == [_frame(TRIAGE.id, "phrase", f"frame.{TRIAGE.id}.{word}", roles, False)], plan.frames
+        assert plan.status == "unread"
+    assert all(f["name"] != TRIAGE.id for f in _plan(stated, "triage it").frames)
+    whole = _plan(stated, "triage JUJ-3 for Milo")
+    assert whole.reading["root"] == TRIAGE.id and whole.reading["complete"], whole.reading
+    none = _runtime(engine, tmp_path, replace(TRIAGE, affordance=[]))
+    assert all(f["name"] != TRIAGE.id for f in _plan(none, "triage it").frames)
+    derived = _plan(_runtime(engine, tmp_path, TRIAGE), "triage it").frames
+    assert _frame(TRIAGE.id, "phrase", f"frame.{TRIAGE.id}.triage", roles, False) in derived, derived
+
+
+#: every DERIVED frame part (the base rows' parts, the office cards', TRIAGE's) as a12d26f4's own code compiled them:
+#: (how many, sha256 of the sorted (part id, its constructions' name, poles and attributes as JSON) pairs)
+DERIVED_ON_A12D26F4 = (14, "d90004e6b15419520042836b34f133c421cd4706d17c883c0758bbff83f341d5")
+
+
+@needs_trf
+def test_a_derived_part_compiles_exactly_as_before():
+    """Only a STATED word's part reads its word as written too: every part the kernel derives (the base set's, a card's,
+    an unstated phrase's) compiles to the constructions it compiled to before stated affordances existed."""
+    import hashlib
+
+    from memory_kernel.runtime.store import compiled
+
+    parts = [s for s in base_specs() if s.unit == "part"] + frame_parts([*OFFICE.cards, TRIAGE])
+    assert not any(p.as_written for p in parts)
+    rows = sorted(
+        (
+            p.id,
+            json.dumps(
+                [[c.name, c.conditional_pole, c.contributing_pole, c.attributes] for c in compiled(p)],
+                sort_keys=True,
+                ensure_ascii=False,
+            ),
+        )
+        for p in parts
+    )
+    digest = hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
+    assert (len(rows), digest) == DERIVED_ON_A12D26F4
+
+
+@needs_trf
+def test_a_stated_word_read_as_a_verb_alone_also_reads_as_written():
+    """A stated word the parser marks as a verb when it stands alone ("budget") reads as the marked verb and as the plain
+    word as written ("the budget"), as a one-word filler does; a stated word read plain alone ("fees") reads as it did,
+    plain and as the marked verb. Both uses share the word with any part that reads either."""
+    [budget] = frame_parts([replace(TRIAGE, affordance=["budget"])])
+    assert budget.as_written and _patterns(budget) == [" budget ", "⟪budget⟫"]
+    assert trigger(budget) == {"budget", "⟪budget⟫"}
+    [fees] = frame_parts([replace(TRIAGE, affordance=["fees"])])
+    assert _patterns(fees) == [" fees ", "⟪fees⟫"]
+    # the field is a part's alone, and absent from the JSON of every part that does not set it
+    assert "as_written" not in frame_parts([TRIAGE])[0].to_json() and budget.to_json()["as_written"] is True
+    from memory_kernel.runtime.constructions import CompileError
+
+    with pytest.raises(CompileError, match="as_written"):
+        replace(TRIAGE, as_written=True)
+
+
+@pytest.mark.needs_fcg
+def test_a_stated_verb_raises_the_frame_on_both_of_its_uses(engine, tmp_path):
+    """``affordance=["budget"]``: the phrase's frame on the noun ("what about the budget") and on the verb ("please
+    budget it")."""
+    runtime = _runtime(engine, tmp_path, replace(TRIAGE, affordance=["budget"]))
+    part = f"frame.{TRIAGE.id}.budget"
+    for text in ("what about the budget", "please budget it"):
+        frames = _plan(runtime, text).frames
+        assert _frame(TRIAGE.id, "phrase", part, {"x": None, "r": None}, False) in frames, (text, frames)
+
+
 #: ten clauses, each with an office verb
 CLAUSES = (
     "take out the trash",

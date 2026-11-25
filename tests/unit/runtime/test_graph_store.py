@@ -11,7 +11,7 @@ import pytest
 
 from memory_kernel.graph.state import meta_props, meta_row
 from memory_kernel.runtime import graph_store
-from memory_kernel.runtime.constructions import CxnSpec
+from memory_kernel.runtime.constructions import CxnSpec, Standing
 from memory_kernel.runtime.graph_store import WRITES, NarrowWriter
 from memory_kernel.runtime.lexicon import load_rolesets
 from memory_kernel.runtime.store import ConstructionStore, StoreError
@@ -24,7 +24,7 @@ DRAFT = dataclasses.replace(BREW, id="brew.d2.0", status="staged")
 
 
 def test_narrow_writer_touches_only_taught_phrase_and_bonfire_meta():
-    assert len(WRITES) == 5
+    assert len(WRITES) == 6  # put, remove, confirmed, uses, choices, catalogue
     for statement in WRITES:
         labels = set(re.findall(r"\(\w*:(\w+)", statement))
         assert labels <= {"TaughtPhrase", "BonfireMeta"}, statement
@@ -79,6 +79,137 @@ def test_record_uses_adds_counters():
         one.record_uses({"nothing-here": "ok"})
     with pytest.raises(StoreError, match="unknown outcome"):
         one.record_uses({LIVE.id: "maybe"})
+
+
+class _FakeDriver:
+    """A driver that records what the writer runs and answers the choice statement from a dict of counters."""
+
+    def __init__(self, nodes):
+        self.nodes, self.ran = nodes, []
+
+    def session(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute_write(self, fn):
+        return fn(self)
+
+    def run(self, cypher, **params):
+        self.ran.append((cypher, params))
+        out = []
+        for r in params["rows"]:
+            node = self.nodes.get(r["id"])
+            if node is None:
+                continue
+            node["won"] = node.get("won", 0) + r["won"]
+            node["lost"] = node.get("lost", 0) + r["lost"]
+            out.append({"id": r["id"], "confirmed": 0, "uses_ok": 0, "uses_failed": 0, "uses_world": 0, **node})
+        return out
+
+
+def test_the_graph_writer_adds_choices_to_the_stored_counters():
+    driver = _FakeDriver({LIVE.id: {"won": 2, "lost": 0}})
+    stored = NarrowWriter(driver, "g").add_choices({LIVE.id: (1, 3), "gone": (1, 0)})
+    assert driver.ran[0][0] == graph_store.ADD_CHOICES and "coalesce(n.won, 0) + r.won" in graph_store.ADD_CHOICES
+    assert [(s.won, s.lost) for s in stored.values()] == [(3, 3)] and list(stored) == [LIVE.id]
+    assert NarrowWriter(driver, "g").add_choices({}) == {}
+
+
+def test_choices_are_added_across_stores_and_a_row_read_back_carries_them():
+    writer = MemoryWriter()
+    one = memory_store(LIVE, dataclasses.replace(LIVE, id="brew.d1.1"), writer=writer)
+    two = ConstructionStore(writer)
+    one.record_choices([(LIVE.id, "brew.d1.1")])
+    two.record_choices([(f"{LIVE.id}#v1", "brew.d1.1")])
+    assert writer.calls[-1] == ("add_choices", {LIVE.id: (1, 0), "brew.d1.1": (0, 1)})
+    assert (two.get(LIVE.id).standing.won, two.get("brew.d1.1").standing.lost) == (2, 2)
+    reread = ConstructionStore(writer)
+    assert (reread.get(LIVE.id).standing.won, reread.get(LIVE.id).standing.lost) == (2, 0)
+    assert '"won"' not in writer.nodes[LIVE.id]["spec_json"]  # the counters sit on the node, not in the row
+    put_again = dataclasses.replace(LIVE, score=0.6)
+    reread.update(puts=[put_again])
+    assert reread.get(LIVE.id).standing.won == 2 and reread.get(LIVE.id).score == 0.6  # a put keeps the counters
+
+
+class _Result(list):
+    def consume(self):
+        return None
+
+
+class _ColumnDriver:
+    """A driver that answers a statement with only the columns its RETURN names, as Neo4j does (one node per id)."""
+
+    def __init__(self, nodes):
+        self.nodes, self.ran = nodes, []
+
+    def session(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute_write(self, fn):
+        return fn(self)
+
+    def run(self, cypher, **params):
+        self.ran.append((cypher, params))
+        if "RETURN" not in cypher:
+            return _Result()
+        wanted = re.findall(r"AS (\w+)", cypher.split("RETURN", 1)[1])
+        out = []
+        for r in params["rows"]:
+            node = self.nodes.get(r["id"])
+            if node is None:
+                continue
+            for src, dst in (("ok", "uses_ok"), ("failed", "uses_failed"), ("world", "uses_world")):
+                if src in r:
+                    node[dst] = node.get(dst, 0) + r[src]
+            for k in ("won", "lost"):
+                if k in r:
+                    node[k] = node.get(k, 0) + r[k]
+            full = {"id": r["id"], "confirmed": 0, "uses_ok": 0, "uses_failed": 0, "uses_world": 0, "won": 0, "lost": 0}
+            full.update(node)
+            out.append({k: full[k] for k in wanted})
+        return _Result(out)
+
+
+def test_a_recorded_use_keeps_the_choice_counters_on_the_real_writer_shape():
+    driver = _ColumnDriver({LIVE.id: {"won": 3, "lost": 1}})
+    store = ConstructionStore(MemoryWriter())
+    store.writer = NarrowWriter(driver, "g")
+    store._rows = {LIVE.id: dataclasses.replace(LIVE, standing=Standing(won=3, lost=1))}
+    row = store.record_uses({LIVE.id: "ok"})[LIVE.id]
+    assert (row.standing.uses_ok, row.standing.won, row.standing.lost) == (1, 3, 1)
+    assert (store.get(LIVE.id).standing.won, store.get(LIVE.id).standing.lost) == (3, 1)
+
+
+def test_a_recorded_use_keeps_a_drafts_choice_counters():
+    store = memory_store(DRAFT)
+    store.record_choices([(DRAFT.id, "nope")])
+    store.record_uses({DRAFT.id: "failed"})
+    assert (store.get(DRAFT.id).standing.won, store.get(DRAFT.id).standing.uses_failed) == (1, 1)
+
+
+def test_a_put_row_for_an_unchosen_spec_carries_no_choice_counters():
+    driver = _ColumnDriver({})
+    NarrowWriter(driver, "g").update(puts=[LIVE, dataclasses.replace(LIVE, id="brew.d1.1", standing=Standing(won=2))])
+    rows = {r["id"]: r for r in driver.ran[0][1]["rows"]}
+    assert (rows[LIVE.id]["won"], rows[LIVE.id]["lost"]) == (None, None)
+    assert (rows["brew.d1.1"]["won"], rows["brew.d1.1"]["lost"]) == (2, None)
+
+
+def test_the_memory_writer_creates_no_choice_counters_for_an_unchosen_row():
+    writer = MemoryWriter()
+    memory_store(LIVE, writer=writer)
+    assert "won" not in writer.nodes[LIVE.id] and "lost" not in writer.nodes[LIVE.id]
 
 
 def test_a_removed_taught_phrase_leaves_the_graph_only_by_a_confirmed_replace():

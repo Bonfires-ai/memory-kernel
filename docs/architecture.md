@@ -361,8 +361,8 @@ settled at read time, where both readings reach the agent as frames.
 
 A draft is staged: it is loaded below everything live, and only its teacher can use it, only in the chat where it was
 taught. `confirm(draft_id, by)` is for the teacher only. It reads nothing, makes the draft live bonfire-wide, and
-records any replaced rows. A teach costs its body's and its own renderings' reads (under 2 s). Both hold the engine
-lock.
+records any replaced rows. A teach costs its body's and its own renderings' reads (a root's under 2 s; a filler's
+read back may add up to 2 s, plus the first search of each root it is read inside). Both hold the engine lock.
 
 ### Serving (`serve/runtime.py`)
 

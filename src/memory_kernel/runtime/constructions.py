@@ -19,7 +19,9 @@ A ``CxnSpec`` describes one construction as data (the shipped base set, mined ro
     being tokens; a marked verb's marks bound it). "archive" is ``" archive "``: never "archives", never inside
     "⟪archive⟫". A part of ONE word also reads that word as written, lowercased, as a marked verb (an alternate,
     ``_marked_as_written``): a word alone has no sentence to be tagged in ("archive" alone is a noun, a verb in
-    "please archive it"; "means" alone is "⟪mean⟫", the tagger keeps "⟪means⟫" in "file X means make ...").
+    "please archive it"; "means" alone is "⟪mean⟫", the tagger keeps "⟪means⟫" in "file X means make ..."). A part
+    that is ``as_written`` (a stated affordance word) also reads its word as written, plain, when the word alone reads
+    as a marked verb, as a one-word filler does ("budget": "⟪budget⟫" and "budget"); no derived part is.
   - ``"filler"``: fills a slot of kind ``fills``. A filler is the only unit that may use ``CONSUME`` (``.{1,200}``),
     which consumes its part of the slot's text, or ``TOKEN`` (``[^ ]{1,200}``: one non-space run, so exactly one
     normalised token; the verb filler's primitive, engine-pinned: a ``CONSUME`` verb filler spans "give⟫ the report
@@ -29,6 +31,10 @@ A ``CxnSpec`` describes one construction as data (the shipped base set, mined ro
     filler's phrase refers to: "my {X}" is the X). A filler of ONE word that is a marked verb alone also reads that word
     as written, lowercased and plain (an alternate, ``_plain_as_written``): "release" alone is "⟪release⟫", a plain noun
     in "release is late", the sentence the slot's text is read in.
+* ``affordance`` (a root's, 2.1): the words that raise its frame, one frame part each (``frames.frame_parts``); None
+  derives the one word from the form as before (such a row's JSON has no ``affordance`` key) and ``[]`` raises none.
+  The compiler never reads it: a root compiles the same whatever it states. A part made from a stated word is
+  ``as_written``: it also reads its word as written, plain, when the word alone reads as a marked verb.
 * slot kinds (``fills``): ``np``, ``name``, ``clause``, ``time`` and ``verb``. A verb slot is written between the verb
   marks the normaliser puts around every verb ("⟪publish⟫"): the compiler writes the marks into the neighbouring
   anchors (``" ⟪"`` … ``"⟫ "``), so the slot binds the lemma alone and a verb slot may sit next to an np slot ("when
@@ -51,6 +57,12 @@ Compiled shapes (what the runtime engine reads; probed on the pinned FCG Go):
   and its span includes the determiner (the NP cut drops it, ``runtime/normalise``). A filler with slots instead has one
   ``sequence`` per literal (anchor ``k`` spans ``?b<k>-l`` .. ``?b<k>-r``, or ``?l`` / ``?r`` at the span's edge) and
   contributes one subunit per slot between them (``?slot-<s>``, as in a root).
+* attributes, every unit: ``score`` (``entrenched``; ``DRAFT_SCORE`` for a staged draft loaded for everyone),
+  ``label`` (the unit) and ``literals``: the normalised text of each
+  literal part of that variant, in form order, as quoted strings (``'"because"'``), from the same map its sequence
+  patterns are built from (unescaped, without the joining spaces, sentinels or verb marks the patterns add); empty for
+  a form with no literal (a root that is one slot, a filler that only consumes). The runtime engine's supply offers a
+  comprehension only the constructions every one of whose literals occurs in its text (``engine.SUPPLY``).
 
 Literals are normalised IN CONTEXT: a root's or part's form is normalised once per np rendering (``np_renderings``:
 the bare stand-in, then the stand-in after the shipped definite determiner), because a determiner can change how the
@@ -113,8 +125,22 @@ STAND_IN = "Zed"
 #: stands in for a verb slot while a form is normalised: a verb in every probed question form ("when did Zed make Zed ?"
 #: normalises to "when do zed ⟪make⟫ zed ?"; with ``STAND_IN`` "did" itself is tagged the verb)
 VERB_STAND_IN = "make"
-#: every construction's score: precedence is the load order (``precedence``), never a score
+#: a construction's neutral score: precedence is the load order (``precedence``); a row with no ``score`` and no recorded
+#: choices is compiled with exactly this
 SCORE = 0.5
+#: the range a row's own ``score`` may state
+SCORE_RANGE = (0.2, 0.8)
+#: how far recorded choices can move a row from its start (never more), and the prior that makes one choice small:
+#: ``entrenched`` = start + ``ENTRENCH_STEP`` x (won - lost) / (won + lost + ``ENTRENCH_PRIOR``)
+ENTRENCH_STEP = 0.2
+ENTRENCH_PRIOR = 4
+#: the score a staged draft is compiled with where it loads for everyone (``store.load_store``, and the other drafts
+#: of teach's self-read), whatever its own ``score`` and counters say: strictly below any score a live row can have
+#: (``entrenched`` stays above ``SCORE_RANGE[0] - ENTRENCH_STEP``), so a draft never outranks a live row and reads only
+#: where nothing live does. The staged row keeps its own score and standing (the confirm needs them)
+DRAFT_SCORE = 0.0
+#: slot names a filler may not use: ``?l`` and ``?r`` are the span's edges the filler binds
+RESERVED_FILLER_SLOTS = frozenset({"l", "r"})
 
 KIND_RANK: Mapping[str, int] = {"base": 0, "mined": 1, "hand": 2, "taught": 3}
 SLOT_KEYS = frozenset({"slot", "fills"})
@@ -144,6 +170,8 @@ class CompileError(ValueError):
 
 STANDING_KEYS_ORDER = ("confirmed", "uses_ok", "uses_failed", "uses_world")
 STANDING_KEYS = frozenset(STANDING_KEYS_ORDER)
+#: the choice counters, written only when not 0
+CHOICE_KEYS = frozenset({"won", "lost"})
 
 
 @dataclass(frozen=True)
@@ -154,6 +182,10 @@ class Standing:
     #: uses the room caused (a precondition, a declined step, a tool error): not evidence against the construction, so
     #: never in precedence
     uses_world: int = 0
+    #: choices this construction won / lost against another reading (``ConstructionStore.record_choices``); they move
+    #: its compiled score (``entrenched``) and nothing else
+    won: int = 0
+    lost: int = 0
 
 
 FormPart = str | dict[str, str]
@@ -172,12 +204,23 @@ class CxnSpec:
     unit: Unit = "part"
     #: the slot kind a filler fills (fillers only)
     fills: Fills | None = None
+    #: the score the row starts from, ``SCORE_RANGE`` (None: ``SCORE``); recorded choices move it (``entrenched``)
+    score: float | None = None
+    #: a root's AFFORDANCE: the words that raise its frame (``frames.frame_parts``: one part per word). None: derived
+    #: from the form, as before 2.1 (and absent from ``to_json``); ``[]``: none, the root is reached by its full form
+    #: only. Only a root states one; what makes a word one the frame parts take is ``frames.affordance_problems``
+    affordance: list[str] | None = None
+    #: a one-word PART made from a word someone wrote (``frames.frame_parts``: a stated affordance word), which reads that
+    #: word on both of its uses: it also reads the word as written, plain, when its standalone reading is a marked verb,
+    #: as a one-word filler does (``_plain_as_written``). Parts the kernel derives never set it; it is absent from
+    #: ``to_json`` when False
+    as_written: bool = False
 
     def __post_init__(self) -> None:
         _check_fields(self)
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        row = {
             "id": self.id,
             "kind": self.kind,
             "unit": self.unit,
@@ -190,10 +233,18 @@ class CxnSpec:
                 "uses_ok": self.standing.uses_ok,
                 "uses_failed": self.standing.uses_failed,
                 "uses_world": self.standing.uses_world,
+                **{k: v for k in ("won", "lost") if (v := getattr(self.standing, k))},
             },
             "status": self.status,
             "provenance": json.loads(json.dumps(self.provenance)),
         }
+        if self.score is not None:
+            row["score"] = self.score
+        if self.affordance is not None:  # an unstated affordance: the row is what it was before 2.1
+            row["affordance"] = list(self.affordance)
+        if self.as_written:  # a derived part keys and compiles as before
+            row["as_written"] = True
+        return row
 
     @classmethod
     def from_json(cls, row: Mapping[str, Any]) -> CxnSpec:
@@ -201,7 +252,21 @@ class CxnSpec:
         values are type-checked before they are copied, never coerced (a string is not a list of characters)."""
         if not isinstance(row, Mapping):
             raise CompileError(f"a spec row is a JSON object, got {type(row).__name__}")
-        known = {"id", "kind", "unit", "fills", "form", "meaning", "answer_shape", "standing", "status", "provenance"}
+        known = {
+            "id",
+            "kind",
+            "unit",
+            "fills",
+            "form",
+            "meaning",
+            "answer_shape",
+            "standing",
+            "status",
+            "provenance",
+            "score",
+            "affordance",
+            "as_written",
+        }
         unknown = set(row) - known
         if unknown:
             raise CompileError(f"unknown spec fields {sorted(unknown)}")
@@ -215,23 +280,28 @@ class CxnSpec:
             raise CompileError(f"meaning must be a list of predicate lists, got {meaning!r}")
         standing = row.get("standing")
         standing = {} if standing is None else standing
-        if not isinstance(standing, Mapping) or set(standing) - STANDING_KEYS:
-            raise CompileError(f"standing must be an object of {'/'.join(STANDING_KEYS_ORDER)}, got {standing!r}")
+        if not isinstance(standing, Mapping) or set(standing) - STANDING_KEYS - CHOICE_KEYS:
+            keys = "/".join((*STANDING_KEYS_ORDER, "won", "lost"))  # the choice counters too (``CHOICE_KEYS``)
+            raise CompileError(f"standing must be an object of {keys}, got {standing!r}")
         provenance = row.get("provenance")
         provenance = {} if provenance is None else provenance
         if not isinstance(provenance, Mapping):
             raise CompileError(f"provenance must be an object, got {provenance!r}")
+        affordance = row.get("affordance")
         return cls(
             id=row["id"],
             kind=row["kind"],
             form=[dict(p) if isinstance(p, Mapping) else p for p in form],
             meaning=[list(p) for p in meaning],
             answer_shape=row.get("answer_shape"),
-            standing=Standing(**{k: standing.get(k, 0) for k in STANDING_KEYS_ORDER}),
+            standing=Standing(**{k: standing.get(k, 0) for k in (*STANDING_KEYS_ORDER, "won", "lost")}),
             status=row.get("status", "staged"),
             provenance=dict(provenance),
             unit=row.get("unit", "part"),
             fills=row.get("fills"),
+            score=row.get("score"),
+            affordance=list(affordance) if isinstance(affordance, list) else affordance,
+            as_written=row.get("as_written", False),
         )
 
 
@@ -250,6 +320,26 @@ def _check_fields(spec: CxnSpec) -> None:
             raise CompileError(f"{spec.id}: a filler needs fills, one of {list(get_args(Fills))}; got {spec.fills!r}")
     elif spec.fills is not None:
         raise CompileError(f"{spec.id}: only a filler has fills (this unit is {spec.unit!r}); slots name their kind")
+    if spec.score is not None and (
+        isinstance(spec.score, bool)
+        or not isinstance(spec.score, int | float)
+        or not SCORE_RANGE[0] <= spec.score <= SCORE_RANGE[1]
+    ):
+        raise CompileError(
+            f"{spec.id}: score must be a number from {SCORE_RANGE[0]} to {SCORE_RANGE[1]}, got {spec.score!r}"
+        )
+    if not isinstance(spec.as_written, bool) or (spec.as_written and spec.unit != "part"):
+        raise CompileError(f"{spec.id}: as_written is true or false, and only a part reads its word as written")
+    if spec.affordance is not None:  # its shape only: what a word must be is ``frames.affordance_problems``
+        if not isinstance(spec.affordance, list) or not all(isinstance(w, str) for w in spec.affordance):
+            raise CompileError(
+                f"{spec.id}: affordance must be a list of words (strings) or null, got {spec.affordance!r}"
+            )
+        if spec.unit != "root":
+            raise CompileError(
+                f"{spec.id}: only a root states an affordance (this unit is {spec.unit!r}): the words that raise a "
+                "frame raise a root's"
+            )
     if spec.answer_shape is not None and not isinstance(spec.answer_shape, str):
         raise CompileError(f"{spec.id}: answer_shape must be a string or null")
     if not isinstance(spec.form, list):
@@ -262,9 +352,32 @@ def _check_fields(spec: CxnSpec) -> None:
         raise CompileError(f"{spec.id}: provenance must be an object")
     s = spec.standing
     if not isinstance(s, Standing) or any(
-        isinstance(v, bool) or not isinstance(v, int) for v in (s.confirmed, s.uses_ok, s.uses_failed, s.uses_world)
+        isinstance(v, bool) or not isinstance(v, int)
+        for v in (s.confirmed, s.uses_ok, s.uses_failed, s.uses_world, s.won, s.lost)
     ):
         raise CompileError(f"{spec.id}: standing counts must be integers, got {s!r}")
+
+
+def entrenched(spec: CxnSpec) -> float:
+    """The score a construction is compiled with: the row's start (``score``, else ``SCORE``) moved by its recorded
+    choices, ``start + ENTRENCH_STEP x (won - lost) / (won + lost + ENTRENCH_PRIOR)``. It reads the counters only, so it
+    is the same whatever order the choices came in; it is never more than ``ENTRENCH_STEP`` from its start."""
+    s = spec.standing
+    start = SCORE if spec.score is None else spec.score
+    if not (s.won or s.lost):
+        return start
+    return start + ENTRENCH_STEP * (s.won - s.lost) / (s.won + s.lost + ENTRENCH_PRIOR)
+
+
+def reserved_slots(spec: CxnSpec) -> list[str]:
+    """The slot names of a filler that are reserved (``RESERVED_FILLER_SLOTS``); none for a root or a part."""
+    if spec.unit != "filler":
+        return []
+    return [
+        p["slot"]
+        for p in spec.form
+        if isinstance(p, dict) and isinstance(p.get("slot"), str) and p["slot"] in RESERVED_FILLER_SLOTS
+    ]
 
 
 def _specificity(spec: CxnSpec) -> int:
@@ -325,13 +438,16 @@ _PATTERNS = frozenset({CONSUME, TOKEN})
 _Part = str | _Slot | _Consume
 
 
-def compile_spec(spec: CxnSpec) -> CompiledCxn:
+def compile_spec(spec: CxnSpec, *, score: float | None = None) -> CompiledCxn:
     """Compile one spec to its ``pyfcg.Construction``(s): one per distinct in-context normalisation of its literals,
     plus a one-word form's reading as written (``_variants``), named by the spec id, or ``<id>#v<n>`` when there are
-    alternates (``spec_id`` maps an applied name back to the spec)."""
+    alternates (``spec_id`` maps an applied name back to the spec). Each carries its variant's literals as an attribute
+    (``_quoted_literals``) and its score: ``entrenched(spec)``, or ``score`` when one is given (a staged draft loaded for
+    everyone: ``DRAFT_SCORE``)."""
     import pyfcg
 
     _check_fields(spec)
+    compiled_score = entrenched(spec) if score is None else score
     meaning = _check_meaning(spec)
     parts = _parse_form(spec)
     _check_variables(spec, parts, meaning)
@@ -350,10 +466,18 @@ def compile_spec(spec: CxnSpec) -> CompiledCxn:
                 name,
                 conditional_pole=conditional,
                 contributing_pole=contributing,
-                attributes={"score": SCORE, "label": spec.unit},
+                attributes={"score": compiled_score, "label": spec.unit, "literals": _quoted_literals(literals)},
             )
         )
     return CompiledCxn(id=spec.id, unit=spec.unit, cxns=tuple(cxns))
+
+
+def _quoted_literals(literals: dict[int, str]) -> list[str]:
+    """A variant's ``literals`` attribute: the normalised text of each of its literal parts (the map its sequence
+    patterns are built from), in form order, each a quoted string as the unit grammar's ``triggers`` are, non-ASCII
+    kept as written (``_pattern``: an escaped ``\\uXXXX`` would reach the engine as other text). Empty for a form with
+    no literal."""
+    return [_pattern(literals[index]) for index in sorted(literals)]
 
 
 def _check_meaning(spec: CxnSpec) -> list[list[str]]:
@@ -526,9 +650,11 @@ def _plain_as_written(spec: CxnSpec, parts: list[_Part], bare: dict[int, str]) -
     plain. A filler is normalised alone, with no sentence to tag its word in, and a slot's text is read in the turn's
     sentence: "release" alone is "⟪release⟫", but in "release is late" the slot's text is the plain noun, which the
     marked form never matches. A verb slot holds the lemma between the marks, so there the plain word fills it only when
-    it is its own lemma ("give", never "gave"). None for any other form (``_one_word``), and when the bare reading is not
-    one marked token ("ethereum" alone stays "ethereum")."""
-    word = _one_word(parts) if spec.unit == "filler" else None
+    it is its own lemma ("give", never "gave"). A one-word PART that reads its word as written (``CxnSpec.as_written``:
+    a stated affordance word) gets the same second reading ("budget" alone is "⟪budget⟫", and "the budget again" holds
+    the plain noun); a part the kernel derives never does. None for any other form (``_one_word``), and when the bare
+    reading is not one marked token ("ethereum" alone stays "ethereum")."""
+    word = _one_word(parts) if spec.unit == "filler" or (spec.unit == "part" and spec.as_written) else None
     text = bare.get(0, "")
     if word is None or not (text.startswith(VERB_OPEN) and text.endswith(VERB_CLOSE)) or " " in text:
         return None
@@ -792,7 +918,13 @@ def _refuse_category(spec: CxnSpec, pole: list) -> None:
 __all__ = [
     "ALTERNATE",
     "CONSUME",
+    "DRAFT_SCORE",
+    "ENTRENCH_PRIOR",
+    "ENTRENCH_STEP",
     "KIND_RANK",
+    "RESERVED_FILLER_SLOTS",
+    "SCORE",
+    "SCORE_RANGE",
     "SENTINEL_END",
     "SENTINEL_START",
     "STAND_IN",
@@ -806,6 +938,7 @@ __all__ = [
     "CxnSpec",
     "Standing",
     "compile_spec",
+    "entrenched",
     "literal_tokens",
     "normalised_form",
     "normalised_forms",
@@ -813,5 +946,6 @@ __all__ = [
     "np_renderings",
     "precedence",
     "renderings",
+    "reserved_slots",
     "spec_id",
 ]

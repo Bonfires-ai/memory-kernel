@@ -27,9 +27,11 @@ speaker may use: ``store.load_store``) and decides what happens to it:
 
 Every plan, whatever its status, carries ``frames`` (``runtime.frames``): what read which words of the turn, from
 the primary analysis and, when it is complete, the competing ones (``RuntimeEngine.comprehend_all``: one per other
-root construction, ``ANALYSES`` in all; an analysis through a draft not usable here is left out), and ``left``: the
-text the primary analysis left unconsumed, as written. When the competing analyses cannot be read (the engine refused
-or failed the n-best request), the primary's plan stands on its own frames and ``reading["alternatives"]`` says why.
+root construction, ``ANALYSES`` in all by default, ``Runtime(analyses=)``; an analysis through a draft not usable
+here is left out), and ``left``: the text the primary analysis left unconsumed, as written. ``Runtime(analyses=1)``
+reads the primary analysis alone: no competing analyses and no bound role read on its own (``_slot_frames``). When
+the competing analyses cannot be read (the engine refused or failed the n-best request), the primary's plan stands on
+its own frames and ``reading["alternatives"]`` says why.
 A partial reading (a frame part read "make" in "make onboard josh") is unread with its frames: the kernel never runs
 it. A reply root ("yes", "no", either with a final "." or "!", or any run of them) is unread with its reply frame: it
 answers the turn before, and nothing runs.
@@ -100,6 +102,11 @@ not in it), latest first: per plan, the entities its answer named (none for a pl
 chat's latest plan has expired or been evicted, the window is empty. The base
 deixis fillers "it" and "that one" read it through the ``window`` keyword (``executor.WINDOW_RULES``): "what did
 Milo publish?" ... "who gave it?". ``Runtime.window(chat_id)`` lists it (answers and entities).
+
+``alternatives(turn)`` returns every distinct complete analysis of the turn (``RuntimeEngine.comprehend_every``,
+under a count, a node cap and a deadline of its own), the first being ``plan``'s reading, each a plan walked with
+``resume`` as ``plan``'s is and its path (the construction in each slot); its plans never record standing and are never
+in the turn window.
 
 ``teach`` and ``confirm`` delegate to ``runtime.teach`` (with this runtime's registry). Every engine access (a
 comprehension, a teach, a confirm) holds one lock: a teach's self-read loads its draft live for a moment, and no turn
@@ -206,10 +213,22 @@ SHAPE_KIND: Mapping[str, tuple[str, bool]] = {"who": (PERSON, True), "what": (PE
 FORGOTTEN_IDS = 4096
 #: FCG renames a construction's variables per application ("?noun" comes back as "?noun-4")
 _APPLICATION_SUFFIX = re.compile(r"-\d+$")
-#: how many analyses of a turn its frames report (the primary and the competing ones): ``comprehend_all``'s ``n``
+#: how many analyses of a turn its frames report (the primary and the competing ones): ``comprehend_all``'s ``n``;
+#: the default of ``Runtime(analyses=)``
 ANALYSES = 3
 #: the frame kinds a bound role can afford when read on its own (``Runtime._slot_frames``)
 INNER_KINDS = frozenset({"tool", "phrase", "editor"})
+#: ``Runtime.alternatives``: how many alternatives one call returns at most (counted after distinctness, ``through``
+#: and ``maximal``), how many analyses its search takes at most before those filters, and the search's node cap and
+#: deadline (``RuntimeEngine.comprehend_every``)
+ALTERNATIVES = 16
+ALTERNATIVES_RAW = 256
+ALTERNATIVES_NODE_CAP = 5000
+ALTERNATIVES_DEADLINE_MS = 10_000
+#: the generated clause filler's id (``store.CLAUSE_FILLER``), as a path names it
+GENERATED = "clause"
+#: a slot unit's FCG name: ``slot-<slot name>-<application number>`` (``constructions``: the subunit ``?slot-<s>``)
+_SLOT_UNIT = re.compile(r"slot-(.+)-\d+")
 
 
 class _Reads(NamedTuple):
@@ -276,13 +295,34 @@ class TurnPlan:
     #: that keeps the program's licence
     failure: dict[str, Any] | None = None
     #: what read which words, on every path (``runtime.frames``): one Frame per frame part and per root of each of up
-    #: to ``ANALYSES`` analyses; [] when nothing read the turn
+    #: to the runtime's ``analyses`` (``ANALYSES``); [] when nothing read the turn
     frames: list[dict[str, Any]] = field(default_factory=list)
     #: the turn's text no construction consumed in the primary analysis, as written ([] once it read completely)
     left: list[str] = field(default_factory=list)
 
     def to_json(self) -> dict[str, Any]:
         return jsonable(asdict(self))
+
+
+@dataclass(frozen=True)
+class Alternative:
+    """One analysis of a turn (``Runtime.alternatives``)."""
+
+    #: walked with ``Runtime.resume`` exactly as a plan from ``Runtime.plan``; it never records standing and is never
+    #: in the chat's turn window
+    plan: TurnPlan
+    #: (slot address, construction spec id): ``("", root id)`` first, then every filled slot, leftmost first, addressed
+    #: by slot names from the root (``"s"``, ``"s/h"``, ``"s/d/h"``); a slot left to the generated filler names
+    #: ``GENERATED``
+    path: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
+class Alternatives:
+    found: tuple[Alternative, ...]
+    #: a bound ended the search (its node cap, its deadline, or ``ALTERNATIVES_RAW`` analyses: there may be analyses
+    #: it did not reach), or more than ``limit`` alternatives were left after the filters (those past it are dropped)
+    cut_short: bool
 
 
 def jsonable(value: Any) -> Any:
@@ -379,6 +419,8 @@ class _Plan:
     #: the reading held a reference (``invoke``): tool-bearing for the licence rule, whatever expanded (ruling R4)
     invokes: bool = False
     recorded: bool = False
+    #: False for an alternative's plan (``Runtime.alternatives``): its outcome is never recorded, on any resume or retry
+    standing: bool = True
     busy: bool = False
     referent: tuple[dict[str, Any], ...] = ()
     entities: list[dict[str, Any]] = field(default_factory=list)
@@ -403,7 +445,15 @@ class Runtime:
     ``lexicon`` is the bonfire's rolesets (``load_rolesets``) over the shipped question map. ``record_standing`` False
     never writes standing (``mk plan``); ``store`` is the bonfire's ``ConstructionStore`` (``mk plan`` passes a
     read-only one). ``cards`` are the catalogue's generated cards (``parse_catalogue``): live beside the store's rows,
-    loaded into the engine with them, never persisted."""
+    loaded into the engine with them, never persisted. ``analyses`` is how many analyses a plan's frames report
+    (``ANALYSES``, the primary and the competing ones); 1 reads the primary analysis alone: no ``comprehend_all`` and
+    no read of the bound roles on their own (``_slot_frames``), the plan's frames are the primary's.
+    ``raise_engine_errors`` True: ``plan`` raises the ``RuntimeEngineError`` that would leave the turn unread (the
+    grammar's load or the turn's read failed), as it was raised, instead of planning the turn as unread with a
+    ``runtime engine:`` diagnostic, so its type says whether a live engine refused or the engine faulted (the install
+    door's self-test). The reads a plan does without (the competing analyses, the bound roles on their own, a
+    composition with the turn before) are done without as before: a caller that must see every engine error reads one
+    analysis, with no context."""
 
     def __init__(
         self,
@@ -422,7 +472,13 @@ class Runtime:
         record_standing: bool = True,
         policy: ConfirmationPolicy = DEFAULT_POLICY,
         cards: Sequence[CxnSpec] = (),
+        analyses: int = ANALYSES,
+        raise_engine_errors: bool = False,
     ) -> None:
+        if isinstance(analyses, bool) or not isinstance(analyses, int) or analyses < 1:
+            raise ValueError(f"analyses must be a positive integer, got {analyses!r}")
+        self.analyses = analyses
+        self.raise_engine_errors = raise_engine_errors
         self.engine = engine
         self.reader = memory
         self.registry = registry if registry is not None else default_registry()
@@ -543,6 +599,8 @@ class Runtime:
             await self._ensure_started()
             own, composed, composition, spent = await asyncio.to_thread(self._comprehend, turn, context)
         except RuntimeEngineError as exc:
+            if self.raise_engine_errors:
+                raise
             info = {"applied": [], "ms": None, "complete": False, "normalised": None, "root": None, "retried": False}
             # nothing read the turn, so nothing consumed it: the whole turn is left, as on every other unread path
             left = [turn.text.strip()] if turn.text.strip() else []
@@ -558,7 +616,8 @@ class Runtime:
         frames = frames_of(self._usable(readings, turn), norm, {**specs, **self._frame_parts()}, self.registry)
         if composed is not None and composition is not None:
             frames = _composed_frames(frames, composition["with"])
-        frames = [*frames, *await asyncio.to_thread(self._slot_frames, frames, norm, turn)]
+        if self.analyses > 1:  # one analysis: the primary's frames alone, no further read
+            frames = [*frames, *await asyncio.to_thread(self._slot_frames, frames, norm, turn)]
         left = surface_left(reading, norm)
         info = {
             "applied": list(reading.applied) if reading is not None else [],
@@ -573,6 +632,28 @@ class Runtime:
             info["alternatives"] = alternatives
         if composition is not None:  # read inside an open frame of the turn before (or why that failed)
             info["composed"] = composition
+        return await self._planned(plan_id, turn, norm, reading, root, specs, info, frames, left, window, committed)
+
+    async def _planned(
+        self,
+        plan_id: str,
+        turn: Turn,
+        norm: Normalised,
+        reading: Reading | None,
+        root: CxnSpec | None,
+        specs: dict[str, CxnSpec],
+        info: dict[str, Any],
+        frames: list[dict[str, Any]],
+        left: list[str],
+        window: int,
+        committed: tuple[dict[str, Any], ...],
+        *,
+        alternative: bool = False,
+    ) -> TurnPlan:
+        """The plan of a turn read as ``reading`` (through ``root``, one of ``specs``: the constructions as they were
+        when the turn was read, the one snapshot its hand and its gate see) on ``norm``: unread, a repair, or its
+        program run as far as it may, kept for ``resume``. ``alternative`` (``Runtime.alternatives``): the plan never
+        records standing and never draws into the chat's turn window."""
         if reading is None or root is None:
             unread = self._unread(plan_id, turn, info, ["no construction read the turn"], frames, left)
             return self._keep(_Plan(unread, 0, 0, turn, False))
@@ -619,7 +700,17 @@ class Runtime:
             left=left,
         )
         record = _Plan(
-            base, 0, 0, turn, True, spans=norm.spans, program=program, committed=committed, uses=uses, invokes=invokes
+            base,
+            0,
+            0,
+            turn,
+            not alternative,
+            spans=norm.spans,
+            program=program,
+            committed=committed,
+            uses=uses,
+            invokes=invokes,
+            standing=not alternative,
         )
         if problems or program is None:
             await self._end(record)
@@ -713,15 +804,17 @@ class Runtime:
         """The analyses that afford something here: an analysis through a draft not usable here affords nothing."""
         return [r for r in readings if admissible(r, self.store, turn.chat_id, turn.speaker or "")]
 
-    def _read(self, text: str, *, retry_mark: bool = True) -> _Reads:
+    def _read(self, text: str, *, retry_mark: bool = True, analyses: int | None = None) -> _Reads:
         """Normalise and comprehend ``text``; with ``retry_mark`` (the turn's own read) the reading is the turn's
         (``_turn_reading``: a final mark is the sentence's or a root literal's, never a slot's). Returns the text read,
         the primary reading, the analyses its frames come from (the primary first; a complete primary adds the
-        competing analyses ``comprehend_all`` finds on the same text, one per other root, up to ``ANALYSES`` in all,
-        on the turn's own read none whose slot takes a final mark; a partial primary has none), the wall ms (every
-        read included), whether the reading used came from the ``RETRY_MARK`` retry, and why the competing analyses
-        were not read (None when they were, or were not asked for). The n-best never costs the primary its plan: when
-        ``comprehend_all`` fails, the primary reading stands alone."""
+        competing analyses ``comprehend_all`` finds on the same text, one per other root, up to ``analyses`` in all,
+        by default the runtime's, on the turn's own read none whose slot takes a final mark; a partial primary has
+        none, nor does a read of one analysis, which never asks for them), the wall ms (every read included), whether
+        the reading used came from the ``RETRY_MARK`` retry, and why the competing analyses were not read (None when
+        they were, or were not asked for). The n-best never costs the primary its plan: when ``comprehend_all``
+        fails, the primary reading stands alone."""
+        n = self.analyses if analyses is None else analyses
         with self._grammar:
             started = time.perf_counter()
             norm = normalise(text)
@@ -732,16 +825,16 @@ class Runtime:
                 norm, reading, retried, refused = self._turn_reading(text, norm, reading, specs)
             readings = [reading] if reading is not None else []
             unread: str | None = None
-            if reading is not None and reading.complete:
+            if reading is not None and reading.complete and n > 1:
                 primary = _root(reading, specs)
                 try:
-                    others = self.engine.comprehend_all(norm.text, ANALYSES)
+                    others = self.engine.comprehend_all(norm.text, n)
                 except RuntimeEngineError as exc:
                     others, unread = [], f"runtime engine: {exc}"
                 if retry_mark:  # the turn's own read: no analysis whose slot takes a final mark
                     marks = _final_marks(norm)
                     others = [r for r in others if not _takes_mark(r, norm, marks)]
-                readings += [r for r in others if _root(r, specs) is not primary][: ANALYSES - 1]
+                readings += [r for r in others if _root(r, specs) is not primary][: n - 1]
             ms = (time.perf_counter() - started) * 1000
             return _Reads(norm, reading, readings, ms, retried, unread, refused)
 
@@ -869,7 +962,7 @@ class Runtime:
     async def _end(self, record: _Plan) -> None:
         """Record the turn's outcome on its applied constructions, once (``store.record_uses``): the outcome of the
         plan as it now stands (``_outcome_of``)."""
-        if record.recorded or not record.uses or not self.record_standing:
+        if record.recorded or not record.uses or not self.record_standing or not record.standing:
             return
         record.recorded = True
         outcome = _outcome_of(record.plan)
@@ -896,6 +989,138 @@ class Runtime:
     ) -> TurnPlan:
         plan = unread_plan(self.bonfire_id, turn, diagnostics, info, frames=frames, left=left)
         return replace(plan, plan_id=plan_id)
+
+    # -- alternatives -------------------------------------------------------------------------------------------------
+
+    async def alternatives(
+        self, turn: Turn, *, through: str | None = None, limit: int = ALTERNATIVES, maximal: bool = True
+    ) -> Alternatives:
+        """Every distinct complete analysis of ``turn``, each a plan walked with ``resume`` exactly as one from
+        ``plan``, with its path (``Alternative``): the first ``limit`` of them.
+
+        The turn is read as ``plan`` reads it (its final marks included: the text read is the one ``plan``'s reading
+        used), the primary analysis alone, then every complete analysis of that text is searched for
+        (``RuntimeEngine.comprehend_every``: up to ``ALTERNATIVES_RAW`` analyses, ``ALTERNATIVES_NODE_CAP`` nodes,
+        ``ALTERNATIVES_DEADLINE_MS``), the first being ``plan``'s reading. Kept, in the search's order: a complete
+        analysis through a root (through ``through`` when one is named: a root's spec id, ``ValueError`` for anything
+        else), whose slot takes no final mark, that applies no draft ``teach.admissible`` refuses for this speaker in
+        this chat; two analyses whose programs are equal, variables renamed in order of appearance, are one (the
+        earlier kept). ``maximal`` then drops an analysis that leaves to the generated filler a piece that another kept
+        analysis reads with another filler in the same slot (same address, same boundaries), never the first. Of what
+        is left the first ``limit`` become plans (at most ``limit`` kept per call). ``found[0]`` is the reading
+        ``plan`` gives when ``plan`` reads the turn completely with a reading this speaker may use (and through
+        ``through`` when one is named); otherwise ``found`` holds what the wider search finds, in its order, and may be
+        empty. Plan's reading is the search's analysis with its program, put first wherever the search found it (the
+        deadline bounds the wider search only; the first search is plan's, bounded as plan's is); a search that does
+        not reproduce it raises ``RuntimeEngineError``. ``cut_short``: a bound ended the search (its node cap, its
+        deadline, or ``ALTERNATIVES_RAW`` analyses), or more than ``limit`` alternatives were left. An analysis whose
+        slots and fillers do not pair one to one has no path: it is left out, with one WARNING per call naming the
+        construction ids of each one left out (never the turn's text); when it is plan's own reading the call raises
+        ``RuntimeEngineError`` (a reading with no path cannot be credited).
+
+        A path names the construction in each slot by the analysis's own structure (``RuntimeEngine.comprehend_every``
+        says which slot unit each construction filled), whatever order the search applied them in, in any grammar.
+        Each plan is read with a window of 0, its frames are its own analysis's, it never records standing and it is
+        never in the chat's turn window. ``alternatives`` raises ``RuntimeEngineError`` when the engine fails, and
+        then keeps no plan."""
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            raise ValueError(f"limit must be a positive integer, got {limit!r}")
+        if through is not None:
+            spec = self._all_specs().get(through)
+            if spec is None or spec.unit != "root":
+                raise ValueError(f"through must name a root construction, got {through!r}")
+        async with self._chat_lock(turn.chat_id):
+            turn = replace(turn, window=())  # the window is the runtime's, never the caller's
+            await self._ensure_started()
+            own, every, cut = await asyncio.to_thread(self._every, turn)
+            norm, specs = own.norm, self._all_specs()
+            marks = _final_marks(norm)
+
+            def usable(reading: Reading) -> bool:
+                return admissible(reading, self.store, turn.chat_id, turn.speaker or "")
+
+            def rooted(reading: Reading, root_id: str | None) -> bool:
+                root = _root(reading, specs)
+                return root is not None and (root_id is None or root.id == root_id)
+
+            primary, first = own.reading, None
+            if primary is not None and primary.complete and rooted(primary, through) and usable(primary):
+                # plan's own reading comes first: the search's analysis with its program, wherever it was found
+                key, root_id = _program_key(primary.meaning), getattr(_root(primary, specs), "id", None)
+                same = (r for r in every if _program_key(r.meaning) == key and rooted(r, root_id) and usable(r))
+                first = next(same, None)
+                if first is None:
+                    raise RuntimeEngineError("the runtime engine's search did not reproduce plan's reading of the turn")
+            candidates = [*([first] if first is not None else []), *(r for r in every if r is not first)]
+            kept: list[tuple[Reading, CxnSpec, tuple[tuple[str, str, tuple[int, int] | None], ...]]] = []
+            seen: set[str] = set()
+            unpaired: list[list[str]] = []
+            for reading in candidates:
+                # plan's own reading takes no final mark (``_turn_reading``): only the search's others are checked
+                if not (reading.complete and rooted(reading, through) and usable(reading)) or (
+                    reading is not first and _takes_mark(reading, norm, marks)
+                ):
+                    continue
+                root = _root(reading, specs)
+                key = _program_key(reading.meaning)
+                if root is None:  # never: rooted
+                    continue
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    path = _path(reading)
+                except RuntimeError as exc:
+                    if reading is first:  # the caller could not credit plan's own reading with no path
+                        raise RuntimeEngineError(f"plan's reading of the turn has no path: {exc}") from exc
+                    unpaired.append([spec_id(name) for name in reading.applied])
+                    continue
+                kept.append((reading, root, path))
+            if unpaired:
+                log.warning(
+                    "bonfire %s: %d alternative(s) left out, their slots and fillers do not pair: %s",
+                    self.bonfire_id,
+                    len(unpaired),
+                    unpaired,
+                )
+            if maximal:
+                read = {(address, span) for _, _, path in kept for address, cxn, span in path if cxn != GENERATED}
+                kept = [
+                    k
+                    for i, k in enumerate(kept)
+                    if i == 0 or not any(cxn == GENERATED and (address, span) in read for address, cxn, span in k[2])
+                ]
+            cut = cut or len(kept) > limit
+            found: list[Alternative] = []
+            for reading, root, path in kept[:limit]:
+                info = {
+                    "applied": list(reading.applied),
+                    "ms": reading.ms,
+                    "complete": True,
+                    "normalised": norm.text,
+                    "root": root.id,
+                    "retried": own.retried,
+                }
+                frames = frames_of([reading], norm, {**specs, **self._frame_parts()}, self.registry)
+                left = surface_left(reading, norm)
+                plan = await self._planned(
+                    uuid.uuid4().hex, turn, norm, reading, root, specs, info, frames, left, 0, (), alternative=True
+                )
+                found.append(Alternative(plan=plan, path=tuple((address, cxn) for address, cxn, _ in path)))
+            return Alternatives(found=tuple(found), cut_short=cut)
+
+    def _every(self, turn: Turn) -> tuple[_Reads, list[Reading], bool]:
+        """The turn's own read (``_read``, the primary analysis alone: which text ``plan`` reads) and every complete
+        analysis of that text, under one hold of the engine."""
+        with self._grammar:
+            own = self._read(turn.text, analyses=1)
+            every, cut = self.engine.comprehend_every(
+                own.norm.text,
+                cap=ALTERNATIVES_RAW,
+                node_cap=ALTERNATIVES_NODE_CAP,
+                deadline_ms=ALTERNATIVES_DEADLINE_MS,
+            )
+            return own, every, cut
 
     # -- resume -------------------------------------------------------------------------------------------------------
 
@@ -1181,6 +1406,89 @@ def _root(reading: Reading | None, specs: Mapping[str, CxnSpec]) -> CxnSpec | No
         if spec is not None and spec.unit == "root":
             return spec
     return None
+
+
+def _path(reading: Reading) -> tuple[tuple[str, str, tuple[int, int] | None], ...]:
+    """A complete reading's constructions by the slot each filled: ``(address, spec id, boundaries)``, the root first
+    (address ``""``, no boundaries), then every slot in tree order, a slot's children leftmost first, addressed by the
+    slot names from the root (``"s"``, ``"s/h"``, ``"s/d/h"``). ``Reading.slots`` gives the tree (each slot unit with
+    the unit holding it; a slot held by no slot unit is the root's); ``Reading.fills`` (``comprehend_every``) the slot
+    unit each applied construction filled, so a slot is paired with its own filler whatever order the search applied
+    them in. A reading whose constructions and slots do not pair one to one (no fill record, a slot filled twice or
+    never, a fill naming no slot of the reading, not exactly one construction filling none) is a ``RuntimeError``."""
+    problem = f"the applied constructions {list(reading.applied)} and the slots {reading.slots} do not pair"
+    if not reading.applied or len(reading.fills) != len(reading.applied):
+        raise RuntimeError(f"{problem}: no fill record for each construction ({reading.fills})")
+    filler: dict[str, str] = {}
+    roots = [name for name, slot in zip(reading.applied, reading.fills, strict=True) if not slot]
+    for name, slot in zip(reading.applied, reading.fills, strict=True):
+        if slot in filler:
+            raise RuntimeError(f"{problem}: {slot} is filled twice")
+        if slot:
+            filler[slot] = name
+    held = {slot for _holder, slot, _left, _right in reading.slots}
+    if len(roots) != 1 or set(filler) != held:
+        raise RuntimeError(f"{problem}: fills {reading.fills}")
+    children: dict[str, list[tuple[int, str, int]]] = {}
+    for holder, slot, left, right in reading.slots:
+        children.setdefault(holder if holder in held else "", []).append((left, slot, right))
+    path: list[tuple[str, str, tuple[int, int] | None]] = [("", spec_id(roots[0]), None)]
+
+    def visit(unit: str, prefix: str) -> None:
+        for left, slot, right in sorted(children.get(unit, ())):
+            match = _SLOT_UNIT.fullmatch(slot)
+            address = f"{prefix}{match.group(1) if match else slot}"
+            path.append((address, spec_id(filler[slot]), (left, right)))
+            visit(slot, address + "/")
+
+    visit("", "")
+    return tuple(path)
+
+
+def _program_key(meaning: Sequence[Sequence[Any]]) -> str:
+    """A reading's program up to the names of its variables and the order of its predicates, as JSON: two analyses with
+    one key are one. Each variable is coloured by the predicates it occurs in (its positions, the constants, the
+    colours of the other variables), refined until the colours stop splitting; the predicates are sorted with each
+    variable masked by its colour, the variables renamed ``?v0``, ``?v1``... in that order, and the renamed predicates
+    sorted again. The key is a renaming of the program itself, so two different programs never share one."""
+    try:
+        program = Program.from_meaning(meaning).to_json()
+    except MeaningError:
+        program = [list(p) for p in meaning]
+
+    def variable(a: Any) -> bool:
+        return isinstance(a, str) and a.startswith("?")
+
+    def masked(p: Sequence[Any], colour: Mapping[str, str]) -> str:
+        return json.dumps([["?", colour[a]] if variable(a) else a for a in p])
+
+    colour = {a: "" for p in program for a in p if variable(a)}
+    while True:
+        signature = {
+            v: json.dumps(
+                [
+                    colour[v],
+                    sorted(
+                        json.dumps([masked(p, colour), [i for i, a in enumerate(p) if a == v]])
+                        for p in program
+                        if v in p
+                    ),
+                ]
+            )
+            for v in colour
+        }
+        ranks = {sig: str(k) for k, sig in enumerate(sorted(set(signature.values())))}
+        refined = {v: ranks[signature[v]] for v in colour}
+        split = len(set(refined.values())) > len(set(colour.values()))
+        colour = refined
+        if not split:
+            break
+    names: dict[str, str] = {}
+    for p in sorted(program, key=lambda p: masked(p, colour)):
+        for a in p:
+            if variable(a) and a not in names:
+                names[a] = f"?v{len(names)}"
+    return json.dumps(sorted(json.dumps([names[a] if variable(a) else a for a in p]) for p in program))
 
 
 def _composed_frames(composed: list[dict[str, Any]], name: str) -> list[dict[str, Any]]:
@@ -1500,10 +1808,18 @@ def _hand(applied: Sequence[str], specs: Mapping[str, CxnSpec], op_specs: Mappin
 
 __all__ = [
     "committed_entries",
+    "ALTERNATIVES",
+    "ALTERNATIVES_DEADLINE_MS",
+    "ALTERNATIVES_NODE_CAP",
+    "ALTERNATIVES_RAW",
+    "ANALYSES",
     "DEFAULT_WINDOW",
+    "GENERATED",
     "MAX_PLANS",
     "PLAN_TTL",
     "VERDICTS",
+    "Alternative",
+    "Alternatives",
     "ResumeError",
     "Runtime",
     "TurnPlan",

@@ -690,3 +690,604 @@ def test_client_timeout_kills_and_restarts(make_engine, monkeypatch):
     monkeypatch.undo()
     after = engine.comprehend_units(WHERE_WORK)
     assert after.complete and after.meaning == before.meaning
+
+
+# -- the text grammar: the leftmost open slot first ------------------------------------------------------------------
+
+SLOT_ORDER_SENTENCE = "it would not work because nobody pays if fees rise but usage holds"
+
+
+def _clause_slot(name: str) -> dict:
+    return {"slot": name, "fills": "clause"}
+
+
+def _slot_order_rows() -> list:
+    """One root over a clause, three two-slot clause fillers and one operator (the argument grammar's shapes), all live:
+    the live rows decide whether a grammar composes (``store.load_store``)."""
+    from memory_kernel.runtime.constructions import CxnSpec
+
+    span = [["clause-span", "?x", "?l", "?r"]]
+    say = [["procedure", "?p", "say"], ["seq", "?p", "1", "?st"], ["statement", "?st", "?s"]]
+    rows = [
+        CxnSpec(id="stmt", kind="hand", unit="root", form=[_clause_slot("s")], meaning=say, score=0.2, status="live")
+    ]
+    for word in ("because", "if", "but"):
+        form = [_clause_slot("h"), word, _clause_slot("d")]
+        meaning = [*span, ["relation", "?rel", "?x", "?h", "?d"]]
+        rows.append(
+            CxnSpec(
+                id=f"cx.{word}",
+                kind="hand",
+                unit="filler",
+                fills="clause",
+                form=form,
+                meaning=meaning,
+                score=0.7,
+                status="live",
+            )
+        )
+    form = [_clause_slot("a"), "not", _clause_slot("b")]
+    meaning = [*span, ["mark", "?m", "?x", "?a", "?b"]]
+    rows.append(
+        CxnSpec(
+            id="op.not",
+            kind="mined",
+            unit="filler",
+            fills="clause",
+            form=form,
+            meaning=meaning,
+            score=0.65,
+            status="live",
+        )
+    )
+    return rows
+
+
+def _turn(text: str):
+    from memory_kernel.runtime.executor import Turn
+
+    return Turn(text, "Ana", "Milo", ("Ana", "Milo"), "c1", None, at="2026-11-19T10:00:00+00:00")
+
+
+def _composed_runtime(engine):
+    """A runtime on ``engine`` over the composing rows (``_slot_order_rows``, live); its first plan loads the grammar."""
+    from memory_kernel.runtime.api import Runtime, default_registry
+    from memory_kernel.runtime.lexicon import Lexicon, QuestionMap
+    from memory_kernel.runtime.program import ToolSpec
+    from unit.runtime.memory_writer import memory_store
+
+    class NoGraph:
+        async def rows(self, cypher, params):
+            return []
+
+    tools = default_registry(
+        [
+            ToolSpec.simple("statement", ("text",), False),
+            ToolSpec.simple("relation", ("whole", "head", "text"), False),
+            ToolSpec.simple("mark", ("whole", "scope", "rest"), False),
+        ]
+    )
+    return Runtime(
+        "bonfire",
+        engine,
+        NoGraph(),
+        tools,
+        lexicon=Lexicon([], QuestionMap.load()),
+        store=memory_store(*_slot_order_rows()),
+        record_standing=False,
+    )
+
+
+def _read_composed(engine):
+    """Load the rows through a runtime (one plan loads the grammar), then read the sentence with the engine."""
+    import asyncio
+
+    from memory_kernel.runtime.normalise import normalise
+
+    asyncio.run(_composed_runtime(engine).plan(_turn("ok"), window=5))
+    return engine.comprehend(normalise(SLOT_ORDER_SENTENCE).text)
+
+
+@pytest.mark.needs_fcg
+def test_a_deeply_composed_sentence_reads_inside_the_default_budget(make_engine):
+    """With the kernel's default settings, unchanged (the text grammar's search is bound by pyfcg's node cap and the
+    request's time limit; a text ``Reading`` has no ``budget``), nested two-slot clause fillers read whole, each filler
+    applied: the search fills the leftmost open slot first, never every order of the same slots. Without the
+    slot-order node test this sentence ran past the request's 5 s and the engine was torn down."""
+    reading = _read_composed(make_engine())
+    assert reading is not None and reading.complete and reading.left == ()
+    from memory_kernel.runtime.constructions import spec_id
+
+    assert {"cx.because", "cx.if", "cx.but", "op.not"} <= {spec_id(a) for a in reading.applied}
+
+
+def _node_tests_sent(engine, load) -> list:
+    """Run ``load()`` and return the ``node-tests`` the engine was given last."""
+    sent: list = []
+    post = engine._post
+
+    def spy(endpoint, data, *args, **kwargs):
+        if endpoint == "/fcg-set-grammar-configuration" and data.get("key") == "node-tests":
+            sent.append(data["value"])
+        return post(endpoint, data, *args, **kwargs)
+
+    engine._post = spy
+    try:
+        load()
+    finally:
+        del engine._post
+    return sent[-1]
+
+
+def test_a_grammar_composes_only_with_a_filler_that_holds_a_clause_slot():
+    from memory_kernel.runtime.base import base_specs
+    from memory_kernel.runtime.constructions import CxnSpec
+    from memory_kernel.runtime.store import composes
+
+    root = CxnSpec(id="stmt", kind="hand", unit="root", form=[_clause_slot("s")], meaning=[["x", "?s"]])
+    np_filler = CxnSpec(
+        id="np.of",
+        kind="hand",
+        unit="filler",
+        fills="np",
+        form=[{"slot": "h", "fills": "np"}, "of", {"slot": "d"}],
+        meaning=[["np-span", "?x", "?l", "?r"]],
+    )
+    assert not composes(base_specs())
+    assert not composes([*base_specs(), root])
+    assert not composes([np_filler])
+    assert composes([root, *_slot_order_rows()])
+    assert composes([_slot_order_rows()[1]])
+
+
+@pytest.mark.needs_fcg
+def test_the_slot_order_test_is_on_only_for_a_store_that_composes(make_engine):
+    from memory_kernel.runtime.engine import SLOT_ORDER_TEST
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    engine = make_engine()
+    root = _slot_order_rows()[0]
+    plain = memory_store(root)
+    assert SLOT_ORDER_TEST not in _node_tests_sent(engine, lambda: load_store(plain, engine))
+    composing = memory_store(*_slot_order_rows())
+    assert SLOT_ORDER_TEST in _node_tests_sent(engine, lambda: load_store(composing, engine))
+    assert SLOT_ORDER_TEST not in _node_tests_sent(engine, lambda: load_store(plain, engine))  # back off on reload
+
+
+#: 201 normalised characters of no connective: the clause slot's generated filler takes at most 200
+UNREADABLE_CLAUSE = " and ".join(["the team is small"] * 9) + " and 421"
+
+
+@pytest.mark.needs_fcg
+def test_a_partial_reading_stops_at_a_slot_nothing_fills(make_engine):
+    """In a composing grammar a partial reading of a turn it does not read may bind less. "<201 characters> if fees rise
+    but usage holds" is not read: ``cx.but`` holds the turn, its head slot is 201+ characters (past the clause filler's
+    200) and cannot be filled whole, its dependent slot reads. With the slot-order node test the partial reading is
+    ``stmt, cx.but, clause`` (``cx.if``, inside the unfillable head, is not applied);
+    without it, ``stmt, cx.but, clause, cx.if``. Neither is complete; a complete reading is never lost to this.
+
+    The pins are of the rows staged, loaded below the generated clause filler, as this test was written on, at their
+    own scores (``store.load_store`` now compiles a staged row at ``DRAFT_SCORE``: the test puts their own back). A
+    staged row no longer turns the node test on (``store.load_store``: the live rows decide), so the test turns it on
+    here as it turns it off below. Loaded live (after the generated filler) this sentence reads ``stmt, cx.but, cx.if``
+    with the node test and without it."""
+    from dataclasses import replace
+    from typing import Any
+
+    from pyfcg import grammar as pyfcg_grammar
+
+    from memory_kernel.runtime.constructions import spec_id
+    from memory_kernel.runtime.engine import FRAME_PARTS_TEST, GRAMMAR_ID, SLOT_ORDER_TEST
+    from memory_kernel.runtime.normalise import normalise
+    from memory_kernel.runtime.store import compiled, load_store
+    from unit.runtime.memory_writer import memory_store
+
+    class Recorder:
+        def __init__(self) -> None:
+            self.cxns: list[Any] = []
+
+        def load(self, cxns: Any, **_kw: Any) -> None:
+            self.cxns = list(cxns)
+
+    engine = make_engine()
+    staged: Any = Recorder()  # what load_store loads for the rows staged, in its order
+    rows = [replace(r, status="staged") for r in _slot_order_rows()]
+    load_store(memory_store(*rows), staged)
+    own = {c.name: c for r in rows for c in compiled(r)}  # each staged row at its own score, as the pins were taken
+    engine.load([own.get(c.name, c) for c in staged.cxns], slot_order=True)
+    text = normalise(f"{UNREADABLE_CLAUSE} if fees rise but usage holds").text
+    on = engine.comprehend(text)
+    plain = [t for t in pyfcg_grammar.DEFAULT_GRAMMAR_CONFIGURATION["node-tests"] if t != SLOT_ORDER_TEST]
+    engine._post(
+        "/fcg-set-grammar-configuration",
+        {"key": "node-tests", "value": [FRAME_PARTS_TEST, *plain], "grammar": GRAMMAR_ID},
+    )
+    try:
+        off = engine.comprehend(text)
+    finally:
+        engine._configure()
+    assert on is not None and off is not None and not on.complete and not off.complete
+    assert [spec_id(a) for a in on.applied] == ["stmt", "cx.but", "clause"]
+    assert [spec_id(a) for a in off.applied] == ["stmt", "cx.but", "clause", "cx.if"]
+
+
+def test_two_adjacent_slots_are_refused_so_every_open_slot_has_bounds():
+    """The slot-order test ignores a slot whose boundaries are not integers; the compiler cannot build one: two slots
+    with no literal between them are refused, so each slot sits between literal anchors or the span's own edges."""
+    from memory_kernel.runtime.constructions import CompileError, CxnSpec, compile_spec
+
+    adjacent = CxnSpec(
+        id="cx.adjacent",
+        kind="hand",
+        unit="filler",
+        fills="clause",
+        form=[_clause_slot("h"), _clause_slot("d")],
+        meaning=[["clause-span", "?x", "?l", "?r"], ["relation", "?rel", "?x", "?h", "?d"]],
+    )
+    with pytest.raises(CompileError, match="need a literal anchor between them"):
+        compile_spec(adjacent)
+
+
+# -- the text grammar: the search is offered only the constructions whose literals are in the text ------------------
+
+
+def _literals(cxn) -> list[str]:
+    """A compiled construction's literals, as text (its ``literals`` attribute holds them quoted)."""
+    return [json.loads(q) for q in cxn.attributes.get("literals") or ()]
+
+
+def _supply(engine, mode: str) -> None:
+    from memory_kernel.runtime.engine import GRAMMAR_ID
+
+    engine._post("/fcg-set-grammar-configuration", {"key": "cxn-supplier-mode", "value": mode, "grammar": GRAMMAR_ID})
+
+
+def _mode(engine) -> str:
+    return _lisp(engine, '(format nil "~s" (fcg::get-configuration fcg-go::mk-runtime-grammar :cxn-supplier-mode))')
+
+
+def _renamed(meaning: list) -> list:
+    """A meaning with its variables renamed in order of appearance (``?v0``, ``?v1``...): its predicates and their order
+    as given, only the numbers FCG gave its variables gone."""
+    names: dict[str, str] = {}
+    return [
+        [names.setdefault(a, f"?v{len(names)}") if isinstance(a, str) and a.startswith("?") else a for a in p]
+        for p in meaning
+    ]
+
+
+def _copy(cxn, name: str, **attributes):
+    """``cxn`` under another name, its attributes replaced by ``attributes`` (the same poles: it matches as it does)."""
+    import pyfcg
+
+    return pyfcg.Construction(
+        name,
+        conditional_pole=cxn.conditional_pole,
+        contributing_pole=cxn.contributing_pole,
+        attributes=attributes,
+    )
+
+
+def _patterns(cxn) -> list[str]:
+    """The sequence patterns of a construction's conditional pole, as sent (quoted strings)."""
+    return [
+        s[1]
+        for unit in cxn.conditional_pole
+        for features in unit[1:]
+        if isinstance(features, dict)
+        for s in features.get("#form", [])
+        if s[0] == "sequence"
+    ]
+
+
+def _verbatim(cxn) -> bool:
+    """Every literal of ``cxn`` occurs, escaped as the compiler escapes it, in one of its own sequence patterns: the
+    fact the supply rests on (a pattern can only match where its literal is in the text)."""
+    from memory_kernel.runtime.constructions import _escape
+
+    return all(any(_escape(lit) in p for p in _patterns(cxn)) for lit in _literals(cxn))
+
+
+def test_a_compiled_construction_carries_its_literals():
+    """Each variant's ``literals`` attribute is the normalised text of each of its literal parts, in form order, quoted
+    as the unit grammar's triggers are, from the same map its sequence patterns are built from."""
+    from memory_kernel.runtime.constructions import CONSUME, CxnSpec, compile_spec
+
+    relation = [["clause-span", "?x", "?l", "?r"], ["relation", "?rel", "?x", "?h", "?d"]]
+
+    def compiled_literals(spec) -> list[list[str]]:
+        cxns = compile_spec(spec).cxns
+        assert all(_verbatim(cxn) for cxn in cxns), [(c.name, _patterns(c)) for c in cxns]
+        return [cxn.attributes["literals"] for cxn in cxns]
+
+    because = CxnSpec(
+        id="cx.because",
+        kind="hand",
+        unit="filler",
+        fills="clause",
+        form=[_clause_slot("h"), "because", _clause_slot("d")],
+        meaning=relation,
+    )
+    assert compiled_literals(because) == [['"because"']]
+    root = CxnSpec(id="stmt", kind="hand", unit="root", form=[_clause_slot("s")], meaning=[["statement", "?st", "?s"]])
+    assert compiled_literals(root) == [[]]
+    two = CxnSpec(
+        id="cx.as-long-as",
+        kind="hand",
+        unit="filler",
+        fills="clause",
+        form=["As long as", _clause_slot("d"), ",", _clause_slot("h")],
+        meaning=relation,
+    )
+    assert compiled_literals(two) == [['"as long as"', '","']]  # normalised (lowercased), in form order
+    the = CxnSpec(
+        id="np.the",
+        kind="hand",
+        unit="filler",
+        fills="np",
+        form=["The", CONSUME],
+        meaning=[["definite", "?x"], ["name-span", "?x", "?l", "?r"]],
+    )
+    consumed = CxnSpec(
+        id="np.any", kind="hand", unit="filler", fills="np", form=[CONSUME], meaning=[["name-span", "?x", "?l", "?r"]]
+    )
+    assert compiled_literals(the) == [['"the"']] and compiled_literals(consumed) == [[]]
+    release = CxnSpec(
+        id="t.release",
+        kind="mined",
+        unit="filler",
+        fills="np",
+        form=["release"],
+        meaning=[["name-span", "?x", "?l", "?r"]],
+    )
+    assert compiled_literals(release) == [['"⟪release⟫"'], ['"release"']]  # each alternate its own variant's
+
+
+def test_every_literal_the_kernel_loads_is_in_its_own_patterns():
+    """Over everything ``load_store`` compiles (the base rows, the office catalogue's cards and their frame parts, the
+    composing rows and the generated clause filler): every literal occurs verbatim in its construction's own sequence
+    patterns, so a compiler change that stopped writing one as it is fails here, before the supply could withhold a
+    construction that matches."""
+    from pathlib import Path
+
+    from memory_kernel.runtime.catalogue import parse_catalogue
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    class Recorder:
+        def __init__(self) -> None:
+            self.cxns: list = []
+
+        def load(self, cxns, **_kw) -> None:
+            self.cxns = list(cxns)
+
+    fixture = Path(__file__).resolve().parents[2] / "fixtures" / "office-catalogue.json"
+    office = parse_catalogue(fixture.read_bytes(), str(fixture))
+    loaded: dict[str, object] = {}
+    for rows, cards in (((), ()), (_slot_order_rows(), ()), ((), office.cards), (_slot_order_rows(), office.cards)):
+        store = memory_store(*rows)
+        store.attach_cards(cards)
+        engine = Recorder()
+        load_store(store, engine)  # type: ignore[arg-type]
+        loaded.update((c.name, c) for c in engine.cxns)
+    assert {"clause", "np-bare", "verb", "cx.because", "stmt"} <= set(loaded)  # generated, base and composing rows
+    assert any(n.startswith("frame.") for n in loaded) and any("#v" in n for n in loaded)  # frame parts, alternates
+    with_literals = [c for c in loaded.values() if _literals(c)]
+    assert len(with_literals) > 40
+    assert [n for n, c in loaded.items() if not _verbatim(c)] == []
+
+
+@pytest.mark.needs_fcg
+def test_only_constructions_whose_literals_are_in_the_text_are_offered(make_engine):
+    """For one text the search is offered, in ``:all-cxns``' order, only the constructions every one of whose literals
+    occurs in it: ``offered`` names them, and no search applies any other (the first solution, the competing analyses
+    and every analysis, their continued searches included)."""
+    from memory_kernel.runtime.normalise import normalise
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    engine = make_engine()
+    load_store(memory_store(*[r for r in _slot_order_rows() if r.id != "cx.but"]), engine)  # root, because, if, not
+    text = normalise("it works because people pay").text
+    offered = engine.offered(text)
+    assert {"stmt", "cx.because", "clause"} <= set(offered)
+    assert "cx.if" not in offered and "op.not" not in offered
+    everything = engine._offer(text, ":all-cxns")  # what the stock supply offers at the same node
+    literals = {c.name: _literals(c) for c in engine._complete}
+    assert set(everything) == set(literals)
+    assert offered == tuple(n for n in everything if all(lit in text for lit in literals[n]))  # its order, filtered
+    assert len(offered) < len(everything)
+
+    # the search is offered the same: a copy of "because" whose literals say "if" matches this text as "because" does,
+    # and is never applied; offered everything, the search applies it (positive control)
+    because = next(c for c in engine._complete if c.name == "cx.because")
+    engine.add(_copy(because, "cx.because-if", **{**because.attributes, "literals": ['"if"']}))
+    assert "cx.because-if" not in engine.offered(text)
+
+    def applied() -> set[str]:
+        first = engine.comprehend(text)
+        others = engine.comprehend_all(text, 3)
+        every, _ = engine.comprehend_every(text, cap=32, node_cap=500, deadline_ms=5000)
+        assert first is not None and first.complete
+        return {a for r in [first, *others, *every] for a in r.applied}
+
+    assert "cx.because" in applied() and "cx.because-if" not in applied()
+    _supply(engine, ":all-cxns")
+    try:
+        assert "cx.because-if" in applied()
+    finally:
+        engine._configure()
+
+
+@pytest.mark.needs_fcg
+def test_a_construction_without_a_literal_is_always_offered(make_engine):
+    """A construction with no literal (a root that is one slot, a filler that only consumes or takes a token, and one
+    added without a ``literals`` attribute at all) is offered for every text, one with none of the grammar's words
+    included."""
+    from memory_kernel.runtime.normalise import normalise
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    engine = make_engine()
+    load_store(memory_store(*_slot_order_rows()), engine)
+    because = next(c for c in engine._complete if c.name == "cx.because")
+    engine.add(_copy(because, "cx.because-bare", score=0.7, label="filler"))  # built by hand: no literals attribute
+    bare = {c.name for c in engine._complete if not _literals(c)}
+    assert {"stmt", "clause", "verb", "np-bare", "cx.because-bare"} <= bare
+    for sentence in ("zzz qqq", "it works because people pay", "nobody pays if fees rise but usage holds"):
+        assert bare <= set(engine.offered(normalise(sentence).text)), sentence
+    nothing = engine.offered(normalise("zzz qqq").text)
+    assert set(nothing) == bare  # none of the grammar's literals is in it: what has none, and nothing else
+    assert not {"cx.because", "cx.if", "cx.but", "op.not"} & set(nothing)
+
+
+#: the deep sentence of the slot-order test and three more, each read completely by the composing rows
+SUPPLY_SENTENCES = (
+    SLOT_ORDER_SENTENCE,
+    "it works because people pay",
+    "nobody pays if fees rise",
+    "it would not work but usage holds",
+)
+
+
+@pytest.mark.needs_fcg
+def test_readings_are_the_same_with_and_without_the_supply(make_engine):
+    """The supply only leaves out constructions that cannot apply: every reading (its meaning, predicate order
+    included, applied, status, what is left, slots and span) is the one ``:all-cxns`` gives, the first solution's and
+    the competing analyses' alike. Only the numbers in the meaning's variable names differ (``?h-2`` for ``?h-4``): FCG
+    numbers a construction's variables each time it tries one, and the supply tries fewer. Slot unit names do not
+    change."""
+    from memory_kernel.runtime.engine import SUPPLY
+    from memory_kernel.runtime.normalise import normalise
+
+    engine = make_engine()
+    _read_composed(engine)
+    assert _mode(engine) == SUPPLY.upper()
+    texts = [normalise(s).text for s in SUPPLY_SENTENCES]
+
+    def read(text: str) -> list:
+        first = engine.comprehend(text)
+        assert first is not None
+        return [
+            (_renamed(r.meaning), r.applied, r.complete, r.left, r.left_spans, r.slots, r.boundaries)
+            for r in [first, *engine.comprehend_all(text, 3)]
+        ]
+
+    supplied = [read(t) for t in texts]
+    _supply(engine, ":all-cxns")
+    try:
+        everything = [read(t) for t in texts]
+    finally:
+        engine._configure()
+    assert _mode(engine) == SUPPLY.upper()
+    assert supplied == everything
+    assert all(readings[0][2] for readings in supplied)  # each first reading is complete: real readings compared
+    assert all(len(engine.offered(t)) < len(engine._complete) for t in texts)  # and the supply left some out of each
+
+
+@pytest.mark.needs_fcg
+def test_the_supply_survives_a_clear_and_a_restart(make_engine):
+    """The supply is the text grammar's again after every clear (a load) and on a restarted engine."""
+    import os
+    import signal
+
+    from memory_kernel.runtime.engine import SUPPLY, RuntimeEngineError
+    from memory_kernel.runtime.normalise import normalise
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    engine = make_engine()
+    store = memory_store(*_slot_order_rows())
+    text = normalise("it works because people pay").text
+
+    def filters() -> bool:
+        offered = engine.offered(text)
+        return "cx.because" in offered and not {"cx.if", "cx.but", "op.not"} & set(offered)
+
+    load_store(store, engine)
+    first = engine.comprehend(text)
+    load_store(store, engine)  # the grammar cleared and every construction added again
+    assert _mode(engine) == SUPPLY.upper() and filters()
+    pid = engine.pid
+    os.kill(pid, signal.SIGKILL)
+    deadline = time.monotonic() + 10
+    while engine._engine.process.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.05)
+    with pytest.raises(RuntimeEngineError, match="died"):
+        engine.comprehend(text)
+    again = engine.comprehend(text)  # restarted, the last complete grammar reloaded
+    assert engine.pid not in (None, pid)
+    assert _mode(engine) == SUPPLY.upper() and filters()
+    assert first is not None and again is not None
+    assert (again.meaning, again.applied, again.complete) == (first.meaning, first.applied, first.complete)
+
+
+@pytest.mark.needs_fcg
+def test_alternatives_use_the_supply(make_engine):
+    """``Runtime.alternatives`` (``comprehend_every``: a search continued after its first solution) finds what it finds
+    when every construction is offered: the same analyses, in the same order, with the same paths and plans (their
+    programs up to the numbers in variable names, as in ``test_readings_are_the_same_with_and_without_the_supply``)."""
+    import asyncio
+
+    from memory_kernel.runtime.engine import SUPPLY
+
+    engine = make_engine()
+    runtime = _composed_runtime(engine)
+    runtime.start()
+    turn = _turn(SLOT_ORDER_SENTENCE)
+
+    def found():
+        alternatives = asyncio.run(runtime.alternatives(turn))
+        return alternatives.cut_short, [
+            (a.path, _renamed(a.plan.program), a.plan.status, a.plan.diagnostics, a.plan.reading["applied"])
+            for a in alternatives.found
+        ]
+
+    assert _mode(engine) == SUPPLY.upper()
+    supplied = found()
+    _supply(engine, ":all-cxns")
+    try:
+        everything = found()
+        assert _mode(engine) == ":ALL-CXNS"  # the unfiltered leg ran unfiltered
+    finally:
+        engine._configure()
+    assert supplied == everything
+    assert len(supplied[1]) > 1  # several analyses: the continued search ran under each supply
+
+
+@pytest.mark.needs_fcg
+def test_a_formulation_is_offered_every_construction(make_engine):
+    """``cxn-supplier-mode`` is one key for both directions, and a formulation's processor has no text to read (its
+    root holds the meaning): the supply then offers what ``:all-cxns`` offers, so a construction with literals renders
+    as it does under ``:all-cxns``."""
+    from dataclasses import replace
+
+    from memory_kernel.runtime.constructions import CxnSpec
+    from memory_kernel.runtime.engine import GRAMMAR_ID, SUPPLY
+    from memory_kernel.runtime.normalise import normalise
+    from memory_kernel.runtime.store import load_store
+    from unit.runtime.memory_writer import memory_store
+
+    over = CxnSpec(id="root.over", kind="hand", unit="root", form=["The meeting is over"], meaning=[["over", "?o"]])
+    engine = make_engine()
+    load_store(memory_store(*_slot_order_rows(), replace(over, status="live")), engine)
+    text = normalise("the meeting is over").text
+    reading = engine.comprehend(text)
+    assert reading is not None and reading.complete and reading.applied == ("root.over",)
+    assert _literals(next(c for c in engine._complete if c.name == "root.over"))  # it carries literals
+    meaning = [[a[1:] if isinstance(a, str) and a.startswith("?") else a for a in p] for p in reading.meaning]
+
+    def formulate():
+        return engine._post("/fcg-formulate", {"meaning": meaning, "grammar": GRAMMAR_ID, "package": None})
+
+    assert _mode(engine) == SUPPLY.upper()
+    supplied = formulate()
+    _supply(engine, ":all-cxns")
+    try:
+        everything = formulate()
+        assert _mode(engine) == ":ALL-CXNS"
+    finally:
+        engine._configure()
+    assert everything == [text]  # positive control: under :all-cxns the construction renders its own text back
+    assert supplied == everything

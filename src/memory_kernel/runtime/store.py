@@ -21,9 +21,10 @@ Rules a write keeps (``StoreError`` otherwise):
 Standing and order: ``record_uses({id: outcome})`` counts a use (``Standing.uses_ok`` / ``uses_failed`` /
 ``uses_world``; ``world`` never moves ``precedence``) and ``precedence`` reads the first two. ``load_order()`` is the
 base set and the live rows in ascending precedence: the highest loads last and wins the engine's recency tie-break (taught over hand over mined over base). Staged rows are drafts (``runtime/teach``):
-``load_store`` loads them BELOW everything live (then the generated frame parts, ``runtime/frames``, and the generated
-fillers, ``generated_fillers``, then the live order), so a draft never changes what anyone else reads (``admissible``
-refuses a reading that applied someone else's draft) and a draft only reads where nothing live does.
+``load_store`` loads them BELOW everything live (first, then the generated frame parts, ``runtime/frames``, and the
+generated fillers, ``generated_fillers``, then the live order), compiled at ``constructions.DRAFT_SCORE``, below any
+score a live row can have, so a draft never changes what anyone else reads (``admissible`` refuses a reading that
+applied someone else's draft) and a draft only reads where nothing live does.
 
 The one generated filler is ``CLAUSE_FILLER``, loaded only when a loaded root (a draft, a live row, a card) has a clause
 slot (``{Y:clause}``, ``runtime/teach``): it consumes the slot's whole text and names it as written (``clause-span``),
@@ -48,11 +49,12 @@ from typing import TYPE_CHECKING, Any, Literal
 from memory_kernel.runtime.base import base_specs
 from memory_kernel.runtime.constructions import (
     CONSUME,
+    DRAFT_SCORE,
     CompileError,
     CxnSpec,
-    Standing,
     compile_spec,
     precedence,
+    reserved_slots,
     spec_id,
 )
 from memory_kernel.runtime.frames import CLAUSE_FILLS, CLAUSE_SPAN, frame_parts
@@ -71,12 +73,20 @@ Outcome = Literal["ok", "failed", "world"]
 OUTCOMES: tuple[Outcome, ...] = ("ok", "failed", "world")
 
 
+#: a confirmed row's provenance key (``runtime/teach``): its records of the rows it took the place of, each ``{"id",
+#: "kind", "teacher", "by", SUCCESSOR}`` (a replaced row's own records carried along)
+REPLACED = "replaced"
+#: a ``REPLACED`` record's key: the row that took that row's place (None: none did, a 1.5.0 replace by generalisation)
+SUCCESSOR = "successor"
+
+
 class StoreError(ValueError):
     """A store row breaks a store rule, or the store file is malformed."""
 
 
 @functools.cache
-def _base_ids() -> frozenset[str]:
+def base_ids() -> frozenset[str]:
+    """The ids of the base set (``base.base_specs``): no stored row may hold one."""
     return frozenset(s.id for s in base_specs())
 
 
@@ -86,7 +96,8 @@ def _is_outcome(value: object) -> bool:
 
 class ConstructionStore:
     """The construction rows of one bonfire. Live rows persist through ``writer`` (a ``NarrowWriter``: ``phrases()``,
-    ``update(puts=, removes=, confirmed=)``, ``add_uses``); staged drafts stay in this process's memory. ``read_only``
+    ``update(puts=, removes=, confirmed=)``, ``add_uses`` and ``add_choices``, which adds to a row's ``won`` / ``lost``
+    counters and returns the standing now stored); staged drafts stay in this process's memory. ``read_only``
     (``mk plan``: a process that does not own the bonfire's state) refuses every write (``StoreError``)."""
 
     def __init__(self, writer: Any, *, read_only: bool = False) -> None:
@@ -125,6 +136,30 @@ class ConstructionStore:
 
     def get(self, cxn_id: str) -> CxnSpec | None:
         return self._rows.get(cxn_id)
+
+    def successor(self, cxn_id: str) -> str | None:
+        """The row a confirmed replace or modify put in the place of ``cxn_id``: the ``SUCCESSOR`` of the ``REPLACED``
+        record of a live row that names it, else None. One step: that row may be gone since (``live_successor``)."""
+        for row in self.live():
+            for record in row.provenance.get(REPLACED, []):
+                if isinstance(record, Mapping) and record.get("id") == cxn_id:
+                    after = record.get(SUCCESSOR)
+                    return after if isinstance(after, str) else None
+        return None
+
+    def live_successor(self, cxn_id: str) -> str | None:
+        """The stored live row a chain of confirmed replaces and modifies leads to from ``cxn_id`` (``successor``
+        followed, as teach's resolver follows it, past rows gone since), else None: the row a choice against a replaced
+        id counts for, and the row a refused modify names."""
+        seen = {cxn_id}
+        at = self.successor(cxn_id)
+        while at is not None and at not in seen:
+            row = self._rows.get(at)
+            if row is not None and row.status == "live":
+                return at
+            seen.add(at)
+            at = self.successor(at)
+        return None
 
     def load_order(self) -> list[CxnSpec]:
         """The base set and the live rows, in ascending ``precedence`` (the highest loads last)."""
@@ -201,7 +236,7 @@ class ConstructionStore:
             for name, outcome in uses.items():
                 cxn_id = spec_id(name)
                 if cxn_id not in self._rows:
-                    if cxn_id in _base_ids() or any(card.id == cxn_id for card in self._cards):
+                    if cxn_id in base_ids() or any(card.id == cxn_id for card in self._cards):
                         continue  # base and attached catalogue cards keep no stored standing
                     raise KeyError(f"no construction {cxn_id!r} in the store or the base set")
                 delta = deltas.setdefault(cxn_id, [0, 0, 0])
@@ -215,15 +250,56 @@ class ConstructionStore:
             for cxn_id, (ok, failed, world) in ((i, d) for i, d in deltas.items()):
                 spec = self._rows[cxn_id]
                 s = spec.standing
-                standing = stored.get(cxn_id) or Standing(
-                    confirmed=s.confirmed,
-                    uses_ok=s.uses_ok + ok,
-                    uses_failed=s.uses_failed + failed,
-                    uses_world=s.uses_world + world,
+                standing = stored.get(cxn_id) or replace(
+                    s, uses_ok=s.uses_ok + ok, uses_failed=s.uses_failed + failed, uses_world=s.uses_world + world
                 )
                 updated[cxn_id] = replace(spec, standing=standing)
             self._rows = {**self._rows, **updated}
             return updated
+
+    def record_choices(self, pairs: Iterable[tuple[str, str]]) -> dict[str, CxnSpec]:
+        """Count a list of choices, each ``(winner, loser)`` as construction names or spec ids, in ONE write, and return
+        the updated rows by spec id: the winner's ``won`` and the loser's ``lost`` grow by one (they move the score the
+        construction compiles with, ``constructions.entrenched``). An alternate's name counts for its spec. A side whose
+        row a confirmed replace or modify took out counts for the live row its chain leads to (``live_successor``: a
+        pick on alternatives offered before the confirm, a pick ledger replayed). A side with no stored row and no such
+        chain (a base row, a generated filler, an attached catalogue card, an unknown id) is skipped, and a pair whose
+        two sides are one spec is skipped whole. The counters are added to on the graph; a returned row carries the
+        counters now stored. A staged draft's choice is counted in this process only. Nothing reads differently until
+        the grammar is loaded again (``load_store``): an engine keeps the scores it was loaded with."""
+        with self._lock:
+            deltas: dict[str, list[int]] = {}
+            for winner, loser in pairs:
+                won, lost = self._choosing(spec_id(winner)), self._choosing(spec_id(loser))
+                if won == lost:
+                    continue
+                if won in self._rows:
+                    deltas.setdefault(won, [0, 0])[0] += 1
+                if lost in self._rows:
+                    deltas.setdefault(lost, [0, 0])[1] += 1
+            if not deltas:
+                return {}
+            self._check_writable()
+            live = {i: (d[0], d[1]) for i, d in deltas.items() if self._rows[i].status == "live"}
+            stored = self.writer.add_choices(live) if live else {}
+            updated: dict[str, CxnSpec] = {}
+            for cxn_id, (won, lost) in deltas.items():
+                spec = self._rows[cxn_id]
+                s = spec.standing
+                standing = stored.get(cxn_id) or replace(s, won=s.won + won, lost=s.lost + lost)
+                updated[cxn_id] = replace(spec, standing=standing)
+            self._rows = {**self._rows, **updated}
+            return updated
+
+    def _choosing(self, cxn_id: str) -> str:
+        """The row a choice naming ``cxn_id`` counts for: itself when stored, else the live row a replaced record leads
+        to; a base row, the generated filler or an attached card (which keep no stored standing) is looked up no
+        further, and an id that leads nowhere is returned as it is (and skipped)."""
+        if cxn_id in self._rows or cxn_id in base_ids() or cxn_id == CLAUSE_FILLER.id:
+            return cxn_id
+        if any(card.id == cxn_id for card in self._cards):
+            return cxn_id
+        return self.live_successor(cxn_id) or cxn_id
 
     def _check_writable(self) -> None:
         if self.read_only:
@@ -233,7 +309,7 @@ class ConstructionStore:
 def _admit(spec: CxnSpec, rows: dict[str, CxnSpec]) -> None:
     if spec.kind == "base":
         raise StoreError(f"{spec.id}: base constructions ship with the kernel and are never stored")
-    if spec.id in _base_ids():
+    if spec.id in base_ids():
         raise StoreError(f"{spec.id}: the id names a base construction")
     existing = rows.get(spec.id)
     if existing is not None and existing.kind == "taught" and spec.kind != "taught":
@@ -241,16 +317,24 @@ def _admit(spec: CxnSpec, rows: dict[str, CxnSpec]) -> None:
 
 
 @functools.lru_cache(maxsize=4096)
-def _compiled(key: str) -> tuple[pyfcg.Construction, ...]:
-    return compile_spec(CxnSpec.from_json(json.loads(key))).cxns
+def _compiled(key: str, score: float | None = None) -> tuple[pyfcg.Construction, ...]:
+    return compile_spec(CxnSpec.from_json(json.loads(key)), score=score).cxns
 
 
-def compiled(spec: CxnSpec) -> tuple[pyfcg.Construction, ...]:
-    """``compile_spec(spec).cxns`` (its alternates), cached on what compilation reads (standing, status and provenance
-    do not change it)."""
+def compiled(spec: CxnSpec, *, draft: bool = False) -> tuple[pyfcg.Construction, ...]:
+    """``compile_spec(spec).cxns`` (its alternates), cached on what compilation reads: the row, its ``score`` and its
+    ``won`` / ``lost`` counters (the rest of standing, status and provenance do not change it). A row with no choices
+    keys the cache exactly as before choices existed. ``draft`` True: a staged row as it loads for everyone, compiled at
+    ``DRAFT_SCORE`` (below any live row's score) whatever its own score and counters say (cached apart)."""
     row = spec.to_json()
-    row.update(standing=None, status="live", provenance=None)
-    return _compiled(json.dumps(row, ensure_ascii=False, sort_keys=True))
+    row.update(standing=_choices(spec), status="live", provenance=None)
+    key = json.dumps(row, ensure_ascii=False, sort_keys=True)
+    return _compiled(key, DRAFT_SCORE) if draft else _compiled(key)
+
+
+def _choices(spec: CxnSpec) -> dict[str, int] | None:
+    s = spec.standing
+    return {k: v for k, v in (("won", s.won), ("lost", s.lost)) if v} or None
 
 
 def _compiles(spec: CxnSpec) -> bool:
@@ -290,20 +374,36 @@ def generated_fillers(specs: Iterable[CxnSpec]) -> list[CxnSpec]:
     return [CLAUSE_FILLER] if has_clause_slot else []
 
 
+def composes(specs: Iterable[CxnSpec]) -> bool:
+    """True when any of ``specs`` is a filler that holds a clause slot (a form with a slot that fills a clause): the
+    grammar composes, and the engine searches it with the slot-order node test. No bonfire before 2.1 holds one."""
+    return any(
+        spec.unit == "filler" and any(isinstance(p, dict) and p.get("fills") == CLAUSE_FILLS for p in spec.form)
+        for spec in specs
+    )
+
+
 def load_store(store: ConstructionStore, engine: RuntimeEngine) -> int:
-    """Load the bonfire's grammar into ``engine`` (replacing it): the staged drafts first (ascending precedence), then
-    the frame parts of the live cards and taught phrases (``loaded_frame_parts``) and the generated fillers of every
-    root loaded (``generated_fillers``: none for a grammar with no clause slot), then ``store.load_order()``. Loaded
-    below every live row, a part never takes a sentence a card or phrase reads completely. Returns the number of specs
+    """Load the bonfire's grammar into ``engine`` (replacing it): the staged drafts first (ascending precedence), each
+    compiled at ``DRAFT_SCORE``, below any score a live row can have, whatever its own score and counters say (rank is
+    the score, and the load order only breaks a tie: a draft loaded first at its own score could still outrank a live
+    row), then the frame parts of the live cards and taught phrases (``loaded_frame_parts``) and the generated fillers
+    of every root loaded (``generated_fillers``: none for a grammar with no clause slot), then ``store.load_order()``.
+    Loaded below every live row, a part never takes a sentence a card or phrase reads completely. The LIVE rows decide
+    whether the grammar composes (``composes``: the slot-order node test): a staged draft never changes how anyone
+    else's turn is searched, and a teacher's reads through their own composing draft are searched without the node test
+    until it is confirmed (every analysis stays reachable: search budget, not readings). Returns the number of specs
     loaded."""
     order = store.load_order()
     staged = sorted(store.staged(), key=precedence)
     parts = loaded_frame_parts(order)
     generated = generated_fillers([*staged, *order])
     _warn_taken_ids(generated, [*staged, *parts, *order])
-    specs = [*staged, *parts, *generated, *order]
-    engine.load([cxn for spec in specs for cxn in compiled(spec)])
-    return len(specs)
+    _warn_reserved_slots(store.all())
+    cxns = [cxn for spec in staged for cxn in compiled(spec, draft=True)]
+    cxns += [cxn for spec in [*parts, *generated, *order] for cxn in compiled(spec)]
+    engine.load(cxns, slot_order=composes(order))
+    return len(staged) + len(parts) + len(generated) + len(order)
 
 
 def _warn_taken_ids(generated: Sequence[CxnSpec], loaded: Sequence[CxnSpec]) -> None:
@@ -320,12 +420,27 @@ def _warn_taken_ids(generated: Sequence[CxnSpec], loaded: Sequence[CxnSpec]) -> 
             )
 
 
+def _warn_reserved_slots(rows: Iterable[CxnSpec]) -> None:
+    """One warning per stored filler with a reserved slot name (``l`` or ``r``: it silently binds the span's edge). The
+    row still loads: a bonfire that holds one must not stop opening."""
+    for spec in rows:
+        if reserved_slots(spec):
+            log.warning(
+                "the stored filler %r has a slot named %s, reserved for the span's edges: it still loads, but the slot "
+                "binds the edge, not a filled phrase",
+                spec.id,
+                " and ".join(repr(n) for n in dict.fromkeys(reserved_slots(spec))),
+            )
+
+
 __all__ = [
     "CLAUSE_FILLER",
     "OUTCOMES",
     "ConstructionStore",
     "Outcome",
     "StoreError",
+    "base_ids",
+    "composes",
     "generated_fillers",
     "load_store",
     "loaded_frame_parts",
