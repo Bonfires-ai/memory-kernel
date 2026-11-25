@@ -43,7 +43,7 @@ import hashlib
 import json
 from collections.abc import Coroutine, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Any, TypeVar
+from typing import Any
 
 from memory_kernel.runtime.api import Runtime
 from memory_kernel.runtime.constructions import CompileError, CxnSpec, Standing, compile_spec, reserved_slots, spec_id
@@ -54,8 +54,6 @@ from memory_kernel.runtime.lexicon import Lexicon, QuestionMap
 from memory_kernel.runtime.program import Registry
 from memory_kernel.runtime.store import CLAUSE_FILLER, ConstructionStore, base_ids, load_store
 from memory_kernel.runtime.teach import GRAMMAR, GRAMMAR_HASH, REPLACED
-
-_T = TypeVar("_T")
 
 SCHEMA = "kernel-grammar/v1"
 INSTALLED_KIND = "hand"  # an installed row's kind
@@ -546,7 +544,7 @@ def _read_examples(
     return _run(_walk_examples(runtime, examples, taught))
 
 
-def _run(coro: Coroutine[Any, Any, _T]) -> _T:
+def _run[T](coro: Coroutine[Any, Any, T]) -> T:
     """``asyncio.run(coro)``, on a worker thread with its own loop when a loop is already running here."""
     try:
         asyncio.get_running_loop()
